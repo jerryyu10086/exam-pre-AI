@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  /* 背景 */
+  --color-background: #0f0f14;
+  --color-card: #1a1a24;
+  --color-card-hover: #22223a;
+
+  /* 文字 */
+  --color-primary: #f0f0f0;
+  --color-muted: #888899;
+
+  /* 强调色 */
+  --color-accent: #8b5cf6;
+  --color-accent-hover: #7c3aed;
+
+  /* 档位色条 */
+  --color-tier-must: #ef4444;
+  --color-tier-supplement: #f59e0b;
+  --color-tier-expand: #22c55e;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-primary);
+  font-family: Arial, Helvetica, sans-serif;
+}
