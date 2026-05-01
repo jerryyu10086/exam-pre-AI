@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // pdf-parse 和 mammoth 依赖 Node.js 原生模块，不能被 webpack 打包
+  serverExternalPackages: ["pdf-parse", "mammoth"],
 };
 
 export default nextConfig;
