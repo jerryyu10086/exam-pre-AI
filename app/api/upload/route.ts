@@ -74,3 +74,57 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "服务器错误" }, { status: 500 });
   }
 }
+
+// 列出已上传文件（按 file_name 聚合）
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const examId = searchParams.get("exam_id");
+  const materialType = searchParams.get("material_type");
+
+  if (!examId || !materialType) {
+    return NextResponse.json({ error: "缺少参数" }, { status: 400 });
+  }
+
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("chunks")
+    .select("file_name, chunk_index")
+    .eq("exam_id", examId)
+    .eq("material_type", materialType);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const fileMap = new Map<string, number>();
+  for (const row of data ?? []) {
+    fileMap.set(row.file_name, (fileMap.get(row.file_name) ?? 0) + 1);
+  }
+
+  return NextResponse.json(
+    Array.from(fileMap.entries()).map(([name, chunks]) => ({ name, chunks }))
+  );
+}
+
+// 删除指定文件的所有 chunks
+export async function DELETE(request: NextRequest) {
+  try {
+    const { exam_id, material_type, file_names } = await request.json();
+
+    if (!exam_id || !material_type || !Array.isArray(file_names) || file_names.length === 0) {
+      return NextResponse.json({ error: "缺少参数" }, { status: 400 });
+    }
+
+    const supabase = createServiceClient();
+    const { error } = await supabase
+      .from("chunks")
+      .delete()
+      .eq("exam_id", exam_id)
+      .eq("material_type", material_type)
+      .in("file_name", file_names);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("Delete error:", err);
+    return NextResponse.json({ error: "服务器错误" }, { status: 500 });
+  }
+}
