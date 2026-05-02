@@ -1,14 +1,15 @@
-// pdf-parse 是纯 CJS 模块，无 ESM default export，用 require 引入
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse") as (
-  buffer: Buffer,
-  options?: Record<string, unknown>
-) => Promise<{ text: string; numpages: number }>;
 import {
   SLIDES_MIN_CHUNK_CHARS,
   TEXTBOOK_CHUNK_SIZE,
   TEXTBOOK_CHUNK_OVERLAP,
 } from "./config";
+
+// pdf-parse v1 是 CJS 函数导出
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require("pdf-parse") as (
+  buffer: Buffer,
+  options?: Record<string, unknown>
+) => Promise<{ text: string; numpages: number }>;
 
 // 按页返回文本（用于课件）
 export async function parsePdfPages(buffer: Buffer): Promise<string[]> {
@@ -24,7 +25,7 @@ export async function parsePdfPages(buffer: Buffer): Promise<string[]> {
         return text;
       });
     },
-  } as any);
+  });
   return pages;
 }
 
