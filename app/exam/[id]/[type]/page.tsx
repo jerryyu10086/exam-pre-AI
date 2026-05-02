@@ -94,9 +94,7 @@ export default function UploadPage() {
                   <span className="text-primary text-sm truncate flex-1">
                     {file.name}
                   </span>
-                  <span className="text-muted text-xs mx-3 shrink-0">
-                    {file.chunks} 块
-                  </span>
+
                   {editMode && (
                     <button
                       onClick={() => setConfirmDelete([file.name])}
