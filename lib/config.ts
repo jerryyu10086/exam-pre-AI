@@ -1,7 +1,7 @@
 // 模型
-export const CLAUDE_MODEL = "claude-sonnet-4-6";
-export const EMBEDDING_MODEL = "text-embedding-3-small";
-export const EMBEDDING_DIMENSIONS = 1536;
+export const DEEPSEEK_MODEL = "deepseek-chat";
+export const EMBEDDING_MODEL = "embedding-3"; // 智谱
+export const EMBEDDING_DIMENSIONS = 2048;
 
 // RAG
 export const TOP_K = 10;

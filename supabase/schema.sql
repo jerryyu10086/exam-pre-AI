@@ -18,7 +18,7 @@ create table chunks (
   file_name text,
   material_type text,  -- 'slides' | 'exam' | 'textbook'
   content text,
-  embedding vector(1536),
+  embedding vector(2048),
   chunk_index int,
   created_at timestamp with time zone default now()
 );
@@ -56,7 +56,7 @@ create table messages (
 
 -- 向量相似度搜索函数
 create or replace function match_chunks(
-  query_embedding vector(1536),
+  query_embedding vector(2048),
   match_exam_id uuid,
   match_material_type text default null,
   match_count int default 10
