@@ -1,6 +1,7 @@
 "use client";
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import ChapterCard, { type KnowledgePoint } from "@/components/chapter-card";
 
 type Chapter = {
@@ -54,13 +55,12 @@ export default function ReviewPage() {
         {/* 顶部栏 */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-lg font-semibold text-primary">复习总览</h1>
-          {/* 全局问答入口（Page 6 后实现） */}
-          <button
-            disabled
-            className="text-sm text-muted border border-white/5 rounded-md px-3 py-1.5 opacity-50 cursor-not-allowed"
+          <Link
+            href={`/exam/${params.id}/global-qa`}
+            className="text-sm text-muted border border-white/5 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/10 transition-colors"
           >
             💬 全局问答
-          </button>
+          </Link>
         </div>
 
         {/* 档位图例 */}
