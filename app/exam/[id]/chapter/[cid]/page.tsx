@@ -225,19 +225,21 @@ export default function ChapterPage() {
           {/* 对话卡片列表 */}
           <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
             {conversations.map((conv) => (
-              <button
+              // 外层用 div 避免 button 嵌套 button（HTML 规范不允许）
+              <div
                 key={conv.id}
-                onClick={() => openConversation(conv.id)}
-                className={`shrink-0 w-40 text-left bg-card border rounded-lg p-3 transition-colors ${
+                className={`shrink-0 w-40 bg-card border rounded-lg p-3 transition-colors cursor-pointer ${
                   activeConvId === conv.id
                     ? "border-accent"
                     : "border-white/5 hover:border-white/15"
                 }`}
               >
-                <p className="text-primary text-xs font-medium truncate mb-1">
-                  {conv.title}
-                </p>
-                <p className="text-muted text-xs truncate">{conv.last_message}</p>
+                <div onClick={() => openConversation(conv.id)} className="text-left">
+                  <p className="text-primary text-xs font-medium truncate mb-1">
+                    {conv.title}
+                  </p>
+                  <p className="text-muted text-xs truncate">{conv.last_message}</p>
+                </div>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -247,7 +249,7 @@ export default function ChapterPage() {
                 >
                   删除
                 </button>
-              </button>
+              </div>
             ))}
 
             {/* 新建对话按钮 */}
