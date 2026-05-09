@@ -34,7 +34,7 @@ export default function ChapterPage() {
   // ── 对话区 ────────────────────────────────────────────────
   const {
     conversations, activeConvId, messages, input, setInput, sending,
-    openConversation, sendMessage, deleteConversations,
+    openConversation, resetConversation, sendMessage, deleteConversations,
   } = useChat(params.id, chapterOrder);
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null);
   const [deletingConv, setDeletingConv] = useState(false);
@@ -252,22 +252,23 @@ export default function ChapterPage() {
               </div>
             ))}
 
-            {/* 新建对话按钮 */}
+            {/* 新建对话按钮：清空当前对话，下次发送自动新建 */}
             <button
-              onClick={() => openConversation("")}
+              onClick={resetConversation}
               className="shrink-0 w-32 bg-card border border-white/5 hover:border-white/15 rounded-lg p-3 flex items-center justify-center text-muted hover:text-primary transition-colors text-sm"
             >
               + 新建对话
             </button>
           </div>
 
-          {/* 消息列表（有活跃对话时显示） */}
-          {(activeConvId !== null) && (
-            <div className="bg-card border border-white/5 rounded-lg flex flex-col">
-              <div className="flex-1 p-4 space-y-3 max-h-80 overflow-y-auto">
+          {/* 消息列表（常驻显示，不需要主动打开） */}
+          <div className="bg-card border border-white/5 rounded-lg flex flex-col">
+            <div className="flex-1 p-4 space-y-3 max-h-80 overflow-y-auto">
                 {messages.length === 0 && (
                   <p className="text-muted text-sm text-center py-4">
-                    在下方输入问题，开始对话
+                    {conversations.length === 0
+                      ? "输入问题，开始你的第一个对话"
+                      : "输入问题继续对话，或点「+ 新建对话」开新上下文"}
                   </p>
                 )}
                 {messages.map((msg) => (
@@ -315,8 +316,7 @@ export default function ChapterPage() {
                 </button>
               </div>
             </div>
-          )}
-        </div>
+          </div>
       </div>
 
       {/* 删除确认弹窗 */}

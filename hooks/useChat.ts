@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 export type Conversation = {
   id: string;
@@ -22,21 +22,44 @@ export function useChat(examId: string, chapterOrder: number) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
 
+  // 只在首次加载时自动打开最近的对话，后续刷新列表不再重置
+  const initialLoadDone = useRef(false);
+
   const loadConversations = useCallback(async () => {
     const res = await fetch(
       `/api/chat?exam_id=${examId}&chapter_order=${chapterOrder}`
     );
-    if (res.ok) setConversations(await res.json());
+    if (!res.ok) return;
+    const data: Conversation[] = await res.json();
+    setConversations(data);
+
+    // 首次加载：自动打开最近一条对话（如有），之后不再自动切换
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      if (data.length > 0) {
+        const latest = data[0];
+        setActiveConvId(latest.id);
+        const msgRes = await fetch(`/api/chat?conversation_id=${latest.id}`);
+        if (msgRes.ok) setMessages(await msgRes.json());
+      }
+    }
   }, [examId, chapterOrder]);
 
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
 
+  // 切换到某个已有对话
   const openConversation = useCallback(async (convId: string) => {
     setActiveConvId(convId);
     const res = await fetch(`/api/chat?conversation_id=${convId}`);
     if (res.ok) setMessages(await res.json());
+  }, []);
+
+  // 重置为空白状态（下一次发送会自动新建对话）
+  const resetConversation = useCallback(() => {
+    setActiveConvId(null);
+    setMessages([]);
   }, []);
 
   const sendMessage = useCallback(async () => {
@@ -61,20 +84,18 @@ export function useChat(examId: string, chapterOrder: number) {
         body: JSON.stringify({
           exam_id: examId,
           chapter_order: chapterOrder,
-          conversation_id: activeConvId,
+          conversation_id: activeConvId,  // null → API 自动新建对话
           message: text,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "发送失败");
 
-      // 如果是新对话，更新 activeConvId 并刷新对话列表
+      // 新建对话时锁定 activeConvId，后续消息继续发到同一对话
       if (data.is_new) {
         setActiveConvId(data.conversation_id);
-        await loadConversations();
       }
 
-      // 追加 AI 回复
       const replyMsg: Message = {
         id: `reply-${Date.now()}`,
         role: "assistant",
@@ -83,10 +104,9 @@ export function useChat(examId: string, chapterOrder: number) {
       };
       setMessages((prev) => [...prev, replyMsg]);
 
-      // 刷新对话卡片的 last_message 预览
+      // 刷新对话卡片预览
       await loadConversations();
     } catch (err) {
-      // 发送失败：撤销乐观更新
       setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
       setInput(text);
       console.error("sendMessage error:", err);
@@ -104,7 +124,6 @@ export function useChat(examId: string, chapterOrder: number) {
       });
       if (!res.ok) return;
 
-      // 若删除的包含当前活跃对话，重置
       if (activeConvId && ids.includes(activeConvId)) {
         setActiveConvId(null);
         setMessages([]);
@@ -114,14 +133,17 @@ export function useChat(examId: string, chapterOrder: number) {
     [activeConvId, loadConversations]
   );
 
-  const renameConversation = useCallback(async (convId: string, title: string) => {
-    await fetch("/api/chat", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversation_id: convId, title }),
-    });
-    await loadConversations();
-  }, [loadConversations]);
+  const renameConversation = useCallback(
+    async (convId: string, title: string) => {
+      await fetch("/api/chat", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: convId, title }),
+      });
+      await loadConversations();
+    },
+    [loadConversations]
+  );
 
   return {
     conversations,
@@ -131,6 +153,7 @@ export function useChat(examId: string, chapterOrder: number) {
     setInput,
     sending,
     openConversation,
+    resetConversation,
     sendMessage,
     deleteConversations,
     renameConversation,
