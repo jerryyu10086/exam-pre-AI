@@ -4,14 +4,6 @@ import { useState, useEffect, useRef } from "react";
 
 type FileSummary = { slides: number; exam: number; textbook: number };
 
-const EXAM_TYPE_OPTIONS = [
-  "选择 / 判断 / 填空",
-  "名词解释 / 简答",
-  "论述 / 大题",
-  "计算题",
-  "不知道（AI根据课件内容自行推断）",
-];
-
 async function fetchFileSummary(examId: string): Promise<FileSummary> {
   const types = ["slides", "exam", "textbook"] as const;
   const counts: FileSummary = { slides: 0, exam: 0, textbook: 0 };
@@ -26,6 +18,33 @@ async function fetchFileSummary(examId: string): Promise<FileSummary> {
   return counts;
 }
 
+const CONTEXT_FIELDS = [
+  {
+    key: "chapters" as const,
+    label: "重点章节",
+    placeholder: "如：第3、5章重点考，其余了解即可",
+  },
+  {
+    key: "weights" as const,
+    label: "题型与分值",
+    placeholder: "如：计算题约70分，名词解释30分",
+  },
+  {
+    key: "other" as const,
+    label: "其他提示",
+    placeholder: "如：老师说必考流动镶嵌模型，学长建议背公式",
+  },
+];
+
+type ContextFields = { chapters: string; weights: string; other: string };
+
+function buildUserContext(ctx: ContextFields): string {
+  return CONTEXT_FIELDS
+    .map(({ key, label }) => ctx[key].trim() ? `${label}：${ctx[key].trim()}` : "")
+    .filter(Boolean)
+    .join("\n");
+}
+
 export default function PlanPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -34,21 +53,17 @@ export default function PlanPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // 旧 plan 数据缓存，取消时用于恢复
   const previousPlanRef = useRef<unknown>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // 弹窗状态
   const [showModal, setShowModal] = useState(false);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [hasAnswers, setHasAnswers] = useState(true);
+  const [ctx, setCtx] = useState<ContextFields>({ chapters: "", weights: "", other: "" });
 
   const isReanalysis = previousPlanRef.current !== null;
 
   useEffect(() => {
     fetchFileSummary(params.id).then(setSummary);
 
-    // 加载时缓存已有 plan（若有）
     fetch(`/api/plan?exam_id=${params.id}`)
       .then((r) => r.json())
       .then((d) => {
@@ -60,10 +75,8 @@ export default function PlanPage() {
 
   const canStart = summary ? summary.slides > 0 || summary.exam > 0 : false;
 
-  function toggleType(t: string) {
-    setSelectedTypes((prev) =>
-      prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]
-    );
+  function setField(key: keyof ContextFields, value: string) {
+    setCtx((prev) => ({ ...prev, [key]: value }));
   }
 
   async function handleConfirmAndStart() {
@@ -75,21 +88,14 @@ export default function PlanPage() {
     abortRef.current = controller;
 
     try {
-      await fetch("/api/exam", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: params.id,
-          ...(summary?.slides && summary.slides > 0 ? { exam_types: selectedTypes } : {}),
-          ...(summary?.exam && summary.exam > 0 ? { has_answers: hasAnswers } : {}),
-        }),
-        signal: controller.signal,
-      });
-
       const res = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exam_id: params.id, exam_has_answers: hasAnswers }),
+        body: JSON.stringify({
+          exam_id: params.id,
+          user_context: buildUserContext(ctx),
+          reanalysis: isReanalysis,
+        }),
         signal: controller.signal,
       });
       const data = await res.json();
@@ -106,14 +112,12 @@ export default function PlanPage() {
     abortRef.current?.abort();
 
     if (previousPlanRef.current !== null) {
-      // 有旧数据 → 恢复，不删除
       await fetch("/api/plan", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ exam_id: params.id, data: previousPlanRef.current }),
       });
     } else {
-      // 首次解析 → 删除未完成的 plan
       await fetch(`/api/plan?exam_id=${params.id}`, { method: "DELETE" });
     }
 
@@ -148,7 +152,7 @@ export default function PlanPage() {
         </div>
 
         {isReanalysis && status === "idle" && (
-          <p className="text-muted text-xs mb-4">将覆盖已有复习档案，取消可保留旧版本</p>
+          <p className="text-muted text-xs mb-4">重新解析将跳过已缓存的文件分析，仅重新生成复习计划</p>
         )}
         {status === "loading" && (
           <p className="text-muted text-sm mb-4">AI 正在分析材料，请耐心等待...</p>
@@ -175,59 +179,26 @@ export default function PlanPage() {
       </div>
 
       {/* 解析前问询弹窗 */}
-      {showModal && summary && (
+      {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-card border border-white/5 rounded-lg p-6 w-full max-w-sm mx-4">
+            <p className="text-primary font-semibold text-base mb-1">补充信息</p>
+            <p className="text-muted text-xs mb-5">选填，AI 会据此调整知识点优先级；不确定可以不写</p>
 
-            {summary.slides > 0 && (
-              <div className={summary.exam > 0 ? "mb-6" : ""}>
-                <p className="text-primary font-medium text-sm mb-3">
-                  主要考试题型？（可多选）
-                </p>
-                <div className="flex flex-col gap-2">
-                  {EXAM_TYPE_OPTIONS.map((opt) => (
-                    <label key={opt} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedTypes.includes(opt)}
-                        onChange={() => toggleType(opt)}
-                        className="accent-accent w-4 h-4"
-                      />
-                      <span className="text-primary text-sm">{opt}</span>
-                    </label>
-                  ))}
+            <div className="flex flex-col gap-4">
+              {CONTEXT_FIELDS.map(({ key, label, placeholder }) => (
+                <div key={key}>
+                  <label className="text-primary text-sm font-medium block mb-1.5">{label}</label>
+                  <textarea
+                    value={ctx[key]}
+                    onChange={(e) => setField(key, e.target.value)}
+                    placeholder={placeholder}
+                    rows={2}
+                    className="w-full bg-background border border-white/10 rounded-md px-3 py-2 text-sm text-primary placeholder:text-muted/50 resize-none focus:outline-none focus:border-accent/50"
+                  />
                 </div>
-              </div>
-            )}
-
-            {summary.slides > 0 && summary.exam > 0 && (
-              <div className="border-t border-white/5 mb-6" />
-            )}
-
-            {summary.exam > 0 && (
-              <div>
-                <p className="text-primary font-medium text-sm mb-3">
-                  这些题目是否附带答案或解析？
-                </p>
-                <div className="flex flex-col gap-2">
-                  {[
-                    { label: "有答案 / 有解析", value: true },
-                    { label: "没有答案", value: false },
-                  ].map((opt) => (
-                    <label key={String(opt.value)} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="hasAnswers"
-                        checked={hasAnswers === opt.value}
-                        onChange={() => setHasAnswers(opt.value)}
-                        className="accent-accent w-4 h-4"
-                      />
-                      <span className="text-primary text-sm">{opt.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
+              ))}
+            </div>
 
             <div className="flex gap-3 mt-6">
               <button

@@ -3,13 +3,19 @@ import { useState, useCallback } from "react";
 
 type UploadStatus = "idle" | "uploading" | "success" | "error";
 
+export interface PendingFile {
+  file: File;
+  hasAnswers: boolean;
+}
+
 export interface UploadedFile {
   name: string;
   chunks: number;
+  has_answers: boolean | null;
 }
 
 export function useFileUpload(examId: string, materialType: string) {
-  const [files, setFiles] = useState<File[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [message, setMessage] = useState("");
 
@@ -26,24 +32,36 @@ export function useFileUpload(examId: string, materialType: string) {
   }, [examId, materialType]);
 
   function addFiles(incoming: File[]) {
-    setFiles((prev) => [...prev, ...incoming]);
+    setPendingFiles((prev) => [
+      ...prev,
+      ...incoming.map((file) => ({ file, hasAnswers: true })),
+    ]);
   }
 
   function removeFile(index: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function togglePendingHasAnswers(index: number) {
+    setPendingFiles((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, hasAnswers: !p.hasAnswers } : p))
+    );
   }
 
   async function saveToKnowledgeBase() {
-    if (files.length === 0) return;
+    if (pendingFiles.length === 0) return;
     setStatus("uploading");
     setMessage("");
 
     let totalChunks = 0;
-    for (const file of files) {
+    for (const { file, hasAnswers } of pendingFiles) {
       const form = new FormData();
       form.append("file", file);
       form.append("exam_id", examId);
       form.append("material_type", materialType);
+      if (materialType === "exam") {
+        form.append("has_answers", String(hasAnswers));
+      }
 
       const res = await fetch("/api/upload", { method: "POST", body: form });
       const data = await res.json();
@@ -58,7 +76,7 @@ export function useFileUpload(examId: string, materialType: string) {
 
     setStatus("success");
     setMessage("已存入知识库");
-    setFiles([]);
+    setPendingFiles([]);
     await loadUploadedFiles();
   }
 
@@ -94,7 +112,7 @@ export function useFileUpload(examId: string, materialType: string) {
   }
 
   return {
-    files, status, message, addFiles, removeFile, saveToKnowledgeBase,
+    pendingFiles, status, message, addFiles, removeFile, togglePendingHasAnswers, saveToKnowledgeBase,
     uploadedFiles, editMode, selected, deleting,
     loadUploadedFiles, toggleSelect, toggleEditMode, deleteFiles,
   };

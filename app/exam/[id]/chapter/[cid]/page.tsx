@@ -7,9 +7,10 @@ import { useChat } from "@/hooks/useChat";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-type Chapter = {
-  chapter_name: string;
-  chapter_order: number;
+type FileEntry = {
+  file_name: string;
+  display_name: string;
+  order: number;
   importance: string;
   knowledge_points: KnowledgePoint[];
 };
@@ -27,7 +28,7 @@ export default function ChapterPage() {
   const chapterOrder = parseInt(params.cid);
 
   // ── 章节数据 ──────────────────────────────────────────────
-  const [chapter, setChapter] = useState<Chapter | null>(null);
+  const [chapter, setChapter] = useState<FileEntry | null>(null);
   const [loadError, setLoadError] = useState("");
 
   // ── 渲染控制 ──────────────────────────────────────────────
@@ -52,8 +53,8 @@ export default function ChapterPage() {
           setLoadError("暂无复习计划，请先触发解析");
           return;
         }
-        const found = data.find((c: Chapter) => c.chapter_order === chapterOrder);
-        if (!found) setLoadError(`未找到第 ${chapterOrder} 章数据`);
+        const found = data.find((f: FileEntry) => f.order === chapterOrder);
+        if (!found) setLoadError(`未找到第 ${chapterOrder} 份课件数据`);
         else setChapter(found);
       })
       .catch(() => setLoadError("加载失败，请刷新重试"));
@@ -122,7 +123,7 @@ export default function ChapterPage() {
             <>
               <span className="text-muted text-sm">/</span>
               <h1 className="text-primary font-semibold text-base">
-                {chapter.chapter_name}
+                {chapter.display_name}
               </h1>
             </>
           )}

@@ -20,16 +20,16 @@ export type KnowledgePoint = {
 
 type ChapterCardProps = {
   examId: string;
-  chapterOrder: number;
-  chapterName: string;
+  order: number;
+  displayName: string;
   importance: string;
   knowledgePoints: KnowledgePoint[];
 };
 
 export default function ChapterCard({
   examId,
-  chapterOrder,
-  chapterName,
+  order,
+  displayName,
   importance,
   knowledgePoints,
 }: ChapterCardProps) {
@@ -44,7 +44,7 @@ export default function ChapterCard({
   return (
     <div className="bg-card border border-white/5 rounded-lg p-4">
       <div className="flex items-start justify-between gap-2 mb-3">
-        <h2 className="text-base font-medium text-primary">{chapterName}</h2>
+        <h2 className="text-base font-medium text-primary">{displayName}</h2>
         <span className="text-tier-supplement text-sm shrink-0">{stars}</span>
       </div>
 
@@ -72,7 +72,7 @@ export default function ChapterCard({
 
       <div className="flex justify-end">
         <Link
-          href={`/exam/${examId}/chapter/${chapterOrder}`}
+          href={`/exam/${examId}/chapter/${order}`}
           className="text-accent hover:text-accent-hover text-sm transition-colors"
         >
           深入 →

@@ -28,10 +28,12 @@ export default function UploadPage() {
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null);
 
   const {
-    files, status, message, addFiles, removeFile, saveToKnowledgeBase,
+    pendingFiles, status, message, addFiles, removeFile, togglePendingHasAnswers, saveToKnowledgeBase,
     uploadedFiles, editMode, selected, deleting,
     loadUploadedFiles, toggleSelect, toggleEditMode, deleteFiles,
   } = useFileUpload(params.id, params.type);
+
+  const isExam = params.type === "exam";
 
   useEffect(() => {
     loadUploadedFiles();
@@ -112,6 +114,18 @@ export default function UploadPage() {
                     {file.name}
                   </span>
 
+                  {isExam && file.has_answers !== null && (
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded mx-3 shrink-0 ${
+                        file.has_answers
+                          ? "bg-tier-expand/20 text-tier-expand"
+                          : "bg-tier-supplement/20 text-tier-supplement"
+                      }`}
+                    >
+                      {file.has_answers ? "有答案" : "无答案"}
+                    </span>
+                  )}
+
                   {editMode && (
                     <button
                       onClick={() => setConfirmDelete([file.name])}
@@ -159,20 +173,42 @@ export default function UploadPage() {
               className="hidden"
             />
 
+            {/* 真题提示 */}
+            {isExam && pendingFiles.length > 0 && (
+              <div className="border-l-4 border-accent bg-accent/10 rounded-r-md px-4 py-3 mb-4">
+                <p className="text-primary text-sm font-medium mb-0.5">记得标记每份文件是否附带答案</p>
+                <p className="text-muted text-xs leading-relaxed">
+                  点击文件右侧的绿色/黄色标签即可切换——AI 会据此选择不同的分析策略
+                </p>
+              </div>
+            )}
+
             {/* 待上传文件卡片 */}
-            {files.length > 0 && (
+            {pendingFiles.length > 0 && (
               <div className="flex flex-col gap-3 mb-6">
-                {files.map((file, i) => (
+                {pendingFiles.map((pending, i) => (
                   <div
                     key={i}
                     className="flex items-center bg-card border border-white/5 rounded-lg p-4"
                   >
                     <span className="text-primary text-sm truncate flex-1">
-                      {file.name}
+                      {pending.file.name}
                     </span>
                     <span className="text-muted text-xs mx-3 shrink-0">
-                      {(file.size / 1024).toFixed(0)} KB
+                      {(pending.file.size / 1024).toFixed(0)} KB
                     </span>
+                    {isExam && (
+                      <button
+                        onClick={() => togglePendingHasAnswers(i)}
+                        className={`text-xs px-2 py-0.5 rounded mx-2 shrink-0 transition-colors ${
+                          pending.hasAnswers
+                            ? "bg-tier-expand/20 text-tier-expand hover:bg-tier-expand/30"
+                            : "bg-tier-supplement/20 text-tier-supplement hover:bg-tier-supplement/30"
+                        }`}
+                      >
+                        {pending.hasAnswers ? "有答案" : "无答案"}
+                      </button>
+                    )}
                     <button
                       onClick={() => removeFile(i)}
                       className="text-muted hover:text-primary text-xs shrink-0"
@@ -202,7 +238,7 @@ export default function UploadPage() {
             {/* 存入按钮 */}
             <button
               onClick={saveToKnowledgeBase}
-              disabled={files.length === 0 || status === "uploading"}
+              disabled={pendingFiles.length === 0 || status === "uploading"}
               className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md py-2 text-sm font-medium transition-colors"
             >
               {status === "uploading" ? "处理中..." : "存入知识库"}

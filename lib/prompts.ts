@@ -1,22 +1,19 @@
 export function buildMapSlidesPrompt(fileText: string): string {
-  return `你是考试内容分析专家。请分析以下课件内容，提取核心知识点和考点。
+  return `你是考试内容分析专家。请分析以下课件内容，完整提取其中出现的所有知识点，不要遗漏、不要以"重要性"为由过滤任何内容——重要性由后续步骤判断。
 
 请严格按以下JSON格式输出，不要添加任何其他内容：
 {
   "chapter_name": "章节名称",
-  "core_concepts": [
+  "knowledge_points": [
     {
-      "name": "概念名",
-      "explanation": "详细解释",
-      "examples": ["示例（如有）"],
-      "source": "来源位置"
+      "name": "知识点名称",
+      "explanation": "尽量详细的解释，包含定义、原理、推导过程等",
+      "examples": ["示例、公式、数字、人名等具体内容（如有）"],
+      "source": "来源位置（第几页/第几节）"
     }
   ],
-  "exam_focus": [
-    { "name": "考点名", "question_type": "名词解释/简答/计算/论述" }
-  ],
-  "common_confusions": ["易混淆点描述"],
-  "memory_anchors": ["关键数字/公式/人名"]
+  "common_confusions": ["易混淆点或易错点描述"],
+  "memory_anchors": ["需要精确记忆的数字/公式/人名/定义"]
 }
 
 课件内容：
@@ -67,30 +64,34 @@ export function buildMapExamNoAnswersPrompt(fileText: string): string {
 ${fileText}`;
 }
 
-export function buildReducePrompt(allMapsJson: string): string {
-  return `你是备考策略专家。以下是该考试所有课件和真题的结构化摘要。
+export function buildReducePrompt(allMapsJson: string, userContext?: string): string {
+  const userContextSection = userContext?.trim()
+    ? `\n用户补充信息（作为优先级判断的重要参考）：\n${userContext.trim()}\n`
+    : "";
 
-请按以下步骤分析，输出结构化复习计划：
+  return `你是备考策略专家。以下是该考试所有材料的完整摘要（课件 + 真题，均未经重要性过滤）。
+${userContextSection}
+请完成以下任务：
+1. 参考真题摘要（material_type="exam"）判断各课件知识点的实际被考频率
+2. 为每份课件（material_type="slides"）的每个知识点标注档位（必学/补充/拓展）
+3. 按重要性从高到低为所有课件排序（order 从 1 开始）
 
-Step 1：梳理所有课件覆盖的完整知识图谱
-Step 2：对照真题，评估知识点实际被考概率，注明覆盖置信度
-Step 3：按章节自然顺序（第一章→第二章→...）组织，每章评估重要性
-        重要性档位：高频 / 中频 / 低频
-        ⚠ 重要性是标签，不影响章节排序
-Step 4：每章内部按知识点在课件中的原始顺序输出，每条标注档位（必学/补充/拓展）
-        嵌套约束：必学⊂补充⊂拓展，每档只写新增内容，不重复前一档
-Step 5：严格按以下JSON格式输出，不要添加任何其他内容：
+档位判断优先级：真题出现频率 > 用户补充信息 > 课件强调程度
+嵌套约束：必学⊂补充⊂拓展，每档只写新增内容，不重复前一档
+
+仅输出课件条目（不输出真题条目），严格按以下JSON格式输出，不要添加任何其他内容：
 
 [
   {
-    "chapter_name": "第一章 细胞概述",
-    "chapter_order": 1,
+    "file_name": "（与输入中的 file_name 完全一致）",
+    "display_name": "简洁的展示名（如：第三章 细胞膜结构）",
+    "order": 1,
     "importance": "高频",
     "knowledge_points": [
-      { "tier": "必学", "name": "要点名", "explanation": "详细解释", "examples": ["示例"], "source": "第X讲第X页" },
-      { "tier": "补充", "name": "要点名", "explanation": "详细解释", "examples": ["示例"], "source": "第X讲第X页" },
-      { "tier": "拓展", "name": "要点名", "explanation": "详细解释", "examples": ["示例"], "source": "第X讲第X页" }
-    ]
+      { "tier": "必学", "name": "知识点名", "explanation": "详细解释", "examples": ["示例"], "source": "来源位置" }
+    ],
+    "common_confusions": ["从该课件MAP原样传递"],
+    "memory_anchors": ["从该课件MAP原样传递"]
   }
 ]
 

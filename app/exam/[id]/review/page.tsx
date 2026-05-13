@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import ChapterCard, { type KnowledgePoint } from "@/components/chapter-card";
 
-type Chapter = {
-  chapter_name: string;
-  chapter_order: number;
+type FileEntry = {
+  file_name: string;
+  display_name: string;
+  order: number;
   importance: "高频" | "中频" | "低频";
   knowledge_points: KnowledgePoint[];
 };
@@ -19,7 +20,7 @@ const TIER_LEGEND = [
 
 export default function ReviewPage() {
   const params = useParams<{ id: string }>();
-  const [chapters, setChapters] = useState<Chapter[] | null>(null);
+  const [files, setFiles] = useState<FileEntry[] | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -27,24 +28,21 @@ export default function ReviewPage() {
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          const sorted = [...data].sort(
-            (a: Chapter, b: Chapter) => a.chapter_order - b.chapter_order
-          );
-          setChapters(sorted);
+          const sorted = [...data].sort((a: FileEntry, b: FileEntry) => a.order - b.order);
+          setFiles(sorted);
         } else {
-          setError('暂无复习计划，请先在「准备分析」页触发解析');
+          setError("暂无复习计划，请先在「准备分析」页触发解析");
         }
       })
       .catch(() => setError("加载失败，请刷新重试"));
   }, [params.id]);
 
-  // 统计各重要性档位章节数
-  const stats = chapters
+  const stats = files
     ? {
-        total: chapters.length,
-        高频: chapters.filter((c) => c.importance === "高频").length,
-        中频: chapters.filter((c) => c.importance === "中频").length,
-        低频: chapters.filter((c) => c.importance === "低频").length,
+        total: files.length,
+        高频: files.filter((f) => f.importance === "高频").length,
+        中频: files.filter((f) => f.importance === "中频").length,
+        低频: files.filter((f) => f.importance === "低频").length,
       }
     : null;
 
@@ -76,10 +74,7 @@ export default function ReviewPage() {
         <div className="flex flex-col gap-1.5 mb-5">
           {TIER_LEGEND.map(({ label, desc, colorVar }) => (
             <div key={label} className="flex items-center gap-2">
-              <div
-                className="w-1 h-4 rounded-full shrink-0"
-                style={{ backgroundColor: colorVar }}
-              />
+              <div className="w-1 h-4 rounded-full shrink-0" style={{ backgroundColor: colorVar }} />
               <span className="text-muted text-sm">
                 <span className="text-primary font-medium">{label}</span>
                 {" — "}
@@ -92,38 +87,32 @@ export default function ReviewPage() {
         {/* 统计行 */}
         {stats && (
           <p className="text-muted text-sm mb-5">
-            📊 共 {stats.total} 章，高频 {stats.高频} 章 / 中频 {stats.中频} 章 / 低频 {stats.低频} 章
+            📊 共 {stats.total} 份课件，高频 {stats.高频} / 中频 {stats.中频} / 低频 {stats.低频}
           </p>
         )}
 
-        {/* 错误提示 */}
-        {error && (
-          <p className="text-tier-must text-sm mb-4">{error}</p>
-        )}
+        {error && <p className="text-tier-must text-sm mb-4">{error}</p>}
 
         {/* Loading */}
-        {!chapters && !error && (
+        {!files && !error && (
           <div className="flex flex-col gap-3">
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="bg-card border border-white/5 rounded-lg p-4 h-28 animate-pulse"
-              />
+              <div key={i} className="bg-card border border-white/5 rounded-lg p-4 h-28 animate-pulse" />
             ))}
           </div>
         )}
 
-        {/* 章节卡片列表 */}
-        {chapters && (
+        {/* 课件卡片列表 */}
+        {files && (
           <div className="flex flex-col gap-3">
-            {chapters.map((chapter) => (
+            {files.map((f) => (
               <ChapterCard
-                key={chapter.chapter_order}
+                key={f.order}
                 examId={params.id}
-                chapterOrder={chapter.chapter_order}
-                chapterName={chapter.chapter_name}
-                importance={chapter.importance}
-                knowledgePoints={chapter.knowledge_points}
+                order={f.order}
+                displayName={f.display_name}
+                importance={f.importance}
+                knowledgePoints={f.knowledge_points}
               />
             ))}
           </div>

@@ -16,6 +16,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "缺少必要字段" }, { status: 400 });
     }
 
+    const hasAnswersRaw = formData.get("has_answers") as string | null;
+    const hasAnswers = hasAnswersRaw !== null ? hasAnswersRaw === "true" : null;
+
     const buffer = Buffer.from(await file.arrayBuffer());
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
 
@@ -60,6 +63,7 @@ export async function POST(request: NextRequest) {
         content,
         embedding: embeddings[i],
         chunk_index: i,
+        has_answers: hasAnswers,
       }))
     );
 
@@ -88,19 +92,22 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("chunks")
-    .select("file_name, chunk_index")
+    .select("file_name, chunk_index, has_answers")
     .eq("exam_id", examId)
     .eq("material_type", materialType);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const fileMap = new Map<string, number>();
+  const fileMap = new Map<string, { chunks: number; has_answers: boolean | null }>();
   for (const row of data ?? []) {
-    fileMap.set(row.file_name, (fileMap.get(row.file_name) ?? 0) + 1);
+    if (!fileMap.has(row.file_name)) {
+      fileMap.set(row.file_name, { chunks: 0, has_answers: row.has_answers ?? null });
+    }
+    fileMap.get(row.file_name)!.chunks += 1;
   }
 
   return NextResponse.json(
-    Array.from(fileMap.entries()).map(([name, chunks]) => ({ name, chunks }))
+    Array.from(fileMap.entries()).map(([name, { chunks, has_answers }]) => ({ name, chunks, has_answers }))
   );
 }
 

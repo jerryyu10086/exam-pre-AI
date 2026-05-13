@@ -109,28 +109,28 @@ export async function POST(request: NextRequest) {
       .map((c) => `[来源: ${c.file_name}]\n${c.content}`)
       .join("\n\n---\n\n");
 
-    // 4. 从 plans 表取章节摘要作为 system context
+    // 4. 从 plans.data 直接按 order 取该课件的完整 MAP 数据作为 system context
     const { data: planRow } = await supabase
       .from("plans")
       .select("data")
       .eq("exam_id", exam_id)
       .single();
 
-    const chapters = Array.isArray(planRow?.data) ? planRow.data : [];
-    const chapterMap = chapters.find(
-      (c: { chapter_order: number }) => c.chapter_order === chapter_order
-    );
+    const files = Array.isArray(planRow?.data) ? planRow.data : [];
+    const fileEntry = files.find(
+      (f: { order: number }) => f.order === chapter_order
+    ) ?? null;
 
-    const systemPrompt = `你是课件答疑助手，基于以下检索内容和章节摘要回答问题。
+    const systemPrompt = `你是课件答疑助手，基于以下检索内容和课件知识库回答问题。
 
 规则：
 1. 检索内容不足时，明确告知"该问题在课件中只有部分覆盖"
 2. 引用时标注来源文件名或章节位置
-3. 涉及本章未提及内容时，提示"建议查看其他章节"
+3. 涉及本章未提及内容时，提示"建议查看其他课件"
 4. 优先基于检索内容回答，避免凭空发挥
 
-章节摘要（整体背景）：
-${JSON.stringify(chapterMap ?? {}, null, 2)}
+课件知识库（完整原始内容，含所有知识点、易混淆点、记忆锚点）：
+${JSON.stringify(fileEntry ?? {}, null, 2)}
 
 检索到的相关内容：
 ${retrievedContext || "（未检索到相关内容）"}`;
