@@ -57,7 +57,7 @@ export function useFileUpload(examId: string, materialType: string) {
     }
 
     setStatus("success");
-    setMessage(`已存入知识库，共 ${totalChunks} 个内容块`);
+    setMessage("已存入知识库");
     setFiles([]);
     await loadUploadedFiles();
   }

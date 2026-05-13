@@ -112,6 +112,48 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PATCH /api/plan  —  直接写入 plan 数据，不跑 AI（用于取消时恢复旧数据）
+export async function PATCH(request: NextRequest) {
+  try {
+    const { exam_id, data } = await request.json();
+    if (!exam_id || !data) {
+      return NextResponse.json({ error: "缺少 exam_id 或 data" }, { status: 400 });
+    }
+    const supabase = createServiceClient();
+    const { error } = await supabase
+      .from("plans")
+      .upsert({ exam_id, data }, { onConflict: "exam_id" });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("Plan restore error:", err);
+    return NextResponse.json({ error: "服务器错误" }, { status: 500 });
+  }
+}
+
+// DELETE /api/plan?exam_id=xxx  —  删除已生成的复习计划（用户取消解析时调用）
+export async function DELETE(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const examId = searchParams.get("exam_id");
+  if (!examId) {
+    return NextResponse.json({ error: "缺少 exam_id" }, { status: 400 });
+  }
+
+  const supabase = createServiceClient();
+  const { error } = await supabase
+    .from("plans")
+    .delete()
+    .eq("exam_id", examId);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}
+
 // GET /api/plan?exam_id=xxx  —  读取已生成的复习计划
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

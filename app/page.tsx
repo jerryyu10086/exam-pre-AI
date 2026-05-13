@@ -63,7 +63,7 @@ export default function Home() {
     : exams.filter((e) => e.folder_id === activeFolderId);
 
   const mainTitle =
-    activeFolderId === null ? "全部学科"
+    activeFolderId === null ? "全部"
     : activeFolderId === UNGROUPED ? "未分组"
     : (folders.find((f) => f.id === activeFolderId)?.name ?? "学科");
 
@@ -311,7 +311,7 @@ export default function Home() {
         </div>
 
         {/* 底部操作区 */}
-        <div className="mt-2 flex flex-col gap-1 border-t border-white/5 pt-2">
+        <div className="mt-2 flex flex-col gap-1 border-t border-white/10 pt-2">
           {folderEditMode ? (
             <div className="flex items-center gap-1">
               {selectedFolders.size > 0 && (
@@ -382,7 +382,7 @@ export default function Home() {
             {filteredExams.length > 0 && (
               <button
                 onClick={toggleEditMode}
-                className="text-sm text-muted border border-white/10 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/20 transition-colors"
+                className="text-sm text-primary/70 border border-white/10 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/20 transition-colors"
               >
                 {editMode ? "完成" : "编辑"}
               </button>

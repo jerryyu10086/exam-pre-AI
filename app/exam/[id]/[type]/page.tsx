@@ -37,6 +37,13 @@ export default function UploadPage() {
     loadUploadedFiles();
   }, [loadUploadedFiles]);
 
+  // 文件全部删完后自动退出编辑模式
+  useEffect(() => {
+    if (uploadedFiles.length === 0 && editMode) {
+      toggleEditMode();
+    }
+  }, [uploadedFiles.length, editMode, toggleEditMode]);
+
   const label = LABELS[params.type] ?? params.type;
   const accepted = ACCEPTED[params.type] ?? ".pdf";
   const formatHint = FORMAT_HINT[params.type] ?? "PDF";
@@ -202,15 +209,6 @@ export default function UploadPage() {
             </button>
           </>
         )}
-      {/* 开始解析入口 */}
-      <div className="mt-4">
-        <Link
-          href={`/exam/${params.id}/plan`}
-          className="block w-full text-center bg-card border border-white/5 hover:bg-card-hover text-primary rounded-md py-2 text-sm transition-colors"
-        >
-          开始解析 →
-        </Link>
-      </div>
       </div>
 
       {/* 删除确认弹窗 */}
