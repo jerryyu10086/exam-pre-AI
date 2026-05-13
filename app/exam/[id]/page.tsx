@@ -18,19 +18,16 @@ const MATERIAL_META = [
     type: "slides",
     label: "课件",
     hint: "PDF / MD / PY / IPYNB",
-    desc: "MAP + Embedding，提取考点结构",
   },
   {
     type: "exam",
     label: "真题",
     hint: "PDF / Word / MD / PY / IPYNB",
-    desc: "MAP + Embedding，权重最高",
   },
   {
     type: "textbook",
     label: "课本",
     hint: "PDF",
-    desc: "仅 Embedding，辅助检索参考",
   },
 ] as const;
 
@@ -136,7 +133,7 @@ export default function ExamDetailPage() {
 
         {/* 三类材料入口 */}
         <div className="flex flex-col gap-3 mb-8">
-          {MATERIAL_META.map(({ type, label, hint, desc }) => (
+          {MATERIAL_META.map(({ type, label, hint }) => (
             <button
               key={type}
               onClick={() => handleMaterialClick(type)}
@@ -144,8 +141,7 @@ export default function ExamDetailPage() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-primary font-medium text-sm mb-0.5">{label}</p>
-                  <p className="text-muted text-xs">{desc}</p>
+                  <p className="text-primary font-medium text-sm">{label}</p>
                 </div>
                 <div className="text-right shrink-0 ml-4">
                   <p className="text-primary text-sm font-medium">{counts[type]} 份</p>

@@ -54,7 +54,16 @@ export default function ReviewPage() {
 
         {/* 顶部栏 */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-lg font-semibold text-primary">复习总览</h1>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/exam/${params.id}`}
+              className="text-muted hover:text-primary text-sm transition-colors"
+            >
+              ← 返回
+            </Link>
+            <span className="text-muted text-sm">/</span>
+            <h1 className="text-primary font-semibold text-base">复习总览</h1>
+          </div>
           <Link
             href={`/exam/${params.id}/global-qa`}
             className="text-sm text-muted border border-white/5 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/10 transition-colors"

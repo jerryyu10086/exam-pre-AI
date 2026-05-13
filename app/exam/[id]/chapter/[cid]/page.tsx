@@ -1,8 +1,11 @@
 "use client";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import TierContent, { type KnowledgePoint } from "@/components/tier-content";
 import { useChat } from "@/hooks/useChat";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type Chapter = {
   chapter_name: string;
@@ -107,12 +110,23 @@ export default function ChapterPage() {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-2xl mx-auto">
 
-        {/* 标题 */}
-        {chapter && (
-          <h1 className="text-lg font-semibold text-primary mb-4">
-            {chapter.chapter_name}
-          </h1>
-        )}
+        {/* 顶部导航 */}
+        <div className="flex items-center gap-2 mb-4">
+          <Link
+            href={`/exam/${params.id}/review`}
+            className="text-muted hover:text-primary text-sm transition-colors"
+          >
+            ← 复习总览
+          </Link>
+          {chapter && (
+            <>
+              <span className="text-muted text-sm">/</span>
+              <h1 className="text-primary font-semibold text-base">
+                {chapter.chapter_name}
+              </h1>
+            </>
+          )}
+        </div>
 
         {/* 图例 + 控制栏 */}
         <div className="flex flex-col gap-3 mb-5">
@@ -283,7 +297,26 @@ export default function ChapterPage() {
                           : "bg-background text-primary border border-white/5"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                      {msg.role === "user" ? (
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      ) : (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                            em: ({ children }) => <em className="italic">{children}</em>,
+                            ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-0.5">{children}</ol>,
+                            li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                            code: ({ children }) => <code className="bg-white/10 rounded px-1 text-xs font-mono">{children}</code>,
+                            pre: ({ children }) => <pre className="bg-white/10 rounded p-2 text-xs font-mono mb-2 overflow-x-auto whitespace-pre">{children}</pre>,
+                            h3: ({ children }) => <h3 className="font-semibold mb-1 mt-2">{children}</h3>,
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
+                      )}
                     </div>
                   </div>
                 ))}

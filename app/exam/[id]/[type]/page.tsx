@@ -58,9 +58,18 @@ export default function UploadPage() {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-2xl mx-auto">
 
-        {/* 标题栏 */}
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-lg font-semibold text-primary">{label}</h1>
+        {/* 顶部导航 */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/exam/${params.id}`}
+              className="text-muted hover:text-primary text-sm transition-colors"
+            >
+              ← 返回
+            </Link>
+            <span className="text-muted text-sm">/</span>
+            <h1 className="text-primary font-semibold text-base">{label}</h1>
+          </div>
           {uploadedFiles.length > 0 && (
             <button
               onClick={toggleEditMode}

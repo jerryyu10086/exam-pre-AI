@@ -2,9 +2,9 @@
 
 @theme {
   /* 背景 */
-  --color-background: #0f0f14;
-  --color-card: #1a1a24;
-  --color-card-hover: #22223a;
+  --color-background: #1b1b22;
+  --color-card: #252530;
+  --color-card-hover: #2e2e3c;
 
   /* 文字 */
   --color-primary: #f0f0f0;

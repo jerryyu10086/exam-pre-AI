@@ -37,16 +37,33 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(data ?? []);
 }
 
-// PATCH /api/exam  —  更新 exam 配置（exam_types / has_answers）
+export async function DELETE(request: NextRequest) {
+  try {
+    const { ids } = await request.json();
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: "ids required" }, { status: 400 });
+    }
+    const supabase = createServiceClient();
+    const { error } = await supabase.from("exams").delete().in("id", ids);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+// PATCH /api/exam  —  更新 exam 配置（exam_types / has_answers / name / folder_id）
 export async function PATCH(request: NextRequest) {
   try {
-    const { id, exam_types, has_answers } = await request.json();
+    const { id, exam_types, has_answers, name, folder_id } = await request.json();
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
     const supabase = createServiceClient();
     const updates: Record<string, unknown> = {};
     if (exam_types !== undefined) updates.exam_types = exam_types;
     if (has_answers !== undefined) updates.has_answers = has_answers;
+    if (name !== undefined) updates.name = name.trim();
+    if (folder_id !== undefined) updates.folder_id = folder_id; // 支持 null（移出文件夹）
 
     const { error } = await supabase.from("exams").update(updates).eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
