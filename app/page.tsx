@@ -41,10 +41,10 @@ export default function Home() {
   const [confirmDeleteExams, setConfirmDeleteExams] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // 编辑学科 modal
-  const [editingExam, setEditingExam] = useState<Exam | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editFolderId, setEditFolderId] = useState<string | null>(null);
+  // 学科行内重命名
+  const [renamingExamId, setRenamingExamId] = useState<string | null>(null);
+  const [renameExamValue, setRenameExamValue] = useState("");
+  const renameExamInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/folder").then((r) => r.json()).then((d) => setFolders(Array.isArray(d) ? d : []));
@@ -54,6 +54,7 @@ export default function Home() {
   useEffect(() => { if (creatingFolder) folderInputRef.current?.focus(); }, [creatingFolder]);
   useEffect(() => { if (creatingExam) examInputRef.current?.focus(); }, [creatingExam]);
   useEffect(() => { if (renamingId) renameInputRef.current?.focus(); }, [renamingId]);
+  useEffect(() => { if (renamingExamId) renameExamInputRef.current?.focus(); }, [renamingExamId]);
 
   // ── filteredExams ────────────────────────────────────────
   const filteredExams =
@@ -152,6 +153,7 @@ export default function Home() {
   function toggleEditMode() {
     setEditMode((prev) => !prev);
     setSelectedExams(new Set());
+    setRenamingExamId(null);
   }
 
   function toggleSelectExam(id: string) {
@@ -197,23 +199,21 @@ export default function Home() {
     setConfirmDeleteExams(null);
   }
 
-  function openEditExam(exam: Exam) {
-    setEditingExam(exam);
-    setEditName(exam.name);
-    setEditFolderId(exam.folder_id);
+  function startRenameExam(exam: Exam) {
+    setRenamingExamId(exam.id);
+    setRenameExamValue(exam.name);
   }
 
-  async function handleSaveExam() {
-    if (!editingExam) return;
-    const name = editName.trim();
-    if (!name) return;
+  async function commitRenameExam() {
+    if (!renamingExamId || !renameExamValue.trim()) { setRenamingExamId(null); return; }
+    const trimmed = renameExamValue.trim();
     await fetch("/api/exam", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: editingExam.id, name, folder_id: editFolderId }),
+      body: JSON.stringify({ id: renamingExamId, name: trimmed }),
     });
-    setExams((prev) => prev.map((e) => e.id === editingExam.id ? { ...e, name, folder_id: editFolderId } : e));
-    setEditingExam(null);
+    setExams((prev) => prev.map((e) => e.id === renamingExamId ? { ...e, name: trimmed } : e));
+    setRenamingExamId(null);
   }
 
   // ── render ───────────────────────────────────────────────
@@ -275,7 +275,7 @@ export default function Home() {
                       if (e.key === "Escape") setRenamingId(null);
                     }}
                     onBlur={commitRename}
-                    className="flex-1 min-w-0 bg-background border border-accent/50 rounded px-1.5 py-0.5 text-primary text-xs outline-none"
+                    className="flex-1 min-w-0 bg-background rounded px-1.5 py-0 text-primary text-sm outline-none ring-1 ring-accent/50"
                   />
                 ) : (
                   <span
@@ -417,12 +417,27 @@ export default function Home() {
                       onChange={() => toggleSelectExam(exam.id)}
                       className="accent-accent w-4 h-4 shrink-0 cursor-pointer"
                     />
-                    <p className="flex-1 min-w-0 text-primary text-sm font-medium truncate">{exam.name}</p>
+                    {renamingExamId === exam.id ? (
+                      <input
+                        ref={renameExamInputRef}
+                        value={renameExamValue}
+                        onChange={(e) => setRenameExamValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitRenameExam();
+                          if (e.key === "Escape") setRenamingExamId(null);
+                        }}
+                        onBlur={commitRenameExam}
+                        className="flex-1 min-w-0 bg-background rounded px-1.5 py-0 text-primary text-sm outline-none ring-1 ring-accent/50"
+                      />
+                    ) : (
+                      <p className="flex-1 min-w-0 text-primary text-sm font-medium truncate">{exam.name}</p>
+                    )}
                     <button
-                      onClick={() => openEditExam(exam)}
-                      className="shrink-0 text-xs text-muted hover:text-accent border border-white/10 hover:border-accent/30 rounded px-1.5 py-0.5 transition-colors"
+                      onClick={() => startRenameExam(exam)}
+                      className="shrink-0 text-muted hover:text-accent text-sm transition-colors"
+                      title="改名"
                     >
-                      编辑
+                      ✎
                     </button>
                   </div>
                 </div>
@@ -506,60 +521,6 @@ export default function Home() {
                 创建
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* 编辑学科 */}
-      {editingExam && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 w-full max-w-sm mx-4">
-            <p className="text-primary font-medium text-sm mb-4">编辑学科</p>
-            <input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSaveExam(); }}
-              placeholder="学科名称"
-              className="w-full bg-background border border-white/10 rounded-md px-3 py-2 text-primary text-sm placeholder:text-muted outline-none focus:border-accent/50 transition-colors mb-3"
-            />
-            <div className="relative mb-4">
-              <select
-                value={editFolderId ?? ""}
-                onChange={(e) => setEditFolderId(e.target.value || null)}
-                className="w-full appearance-none bg-background border border-white/10 rounded-md px-3 py-2 pr-8 text-primary text-sm outline-none focus:border-accent/50 transition-colors"
-              >
-                <option value="">未分组</option>
-                {folders.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted text-xs">▾</div>
-            </div>
-            <div className="flex gap-3 mb-3">
-              <button
-                onClick={() => setEditingExam(null)}
-                className="flex-1 bg-card border border-white/5 text-primary rounded-md py-2 text-sm hover:bg-card-hover transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleSaveExam}
-                disabled={!editName.trim()}
-                className="flex-1 bg-accent hover:bg-accent-hover disabled:opacity-50 text-primary rounded-md py-2 text-sm font-medium transition-colors"
-              >
-                保存
-              </button>
-            </div>
-            <button
-              onClick={() => {
-                const id = editingExam.id;
-                setEditingExam(null);
-                setConfirmDeleteExams([id]);
-              }}
-              className="w-full text-tier-must text-sm border border-tier-must/20 rounded-md py-2 hover:bg-tier-must/10 transition-colors"
-            >
-              删除此学科
-            </button>
           </div>
         </div>
       )}
