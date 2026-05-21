@@ -4,7 +4,6 @@ export function buildMapSlidesPrompt(fileText: string): string {
 提取要求：
 - 覆盖课件中出现的所有知识点，不做筛选和遗漏
 - 重要性不在此阶段判断，由后续步骤决定
-- 粒度基准：每个知识点是"一道考题能直接考到的独立概念"，不要把整节压成一条，也不要拆得比一个定义还细，数量由课件实际内容决定
 
 每个知识点分两部分输出：
 - A部分（knowledge、source）：完整还原知识点的内容，供系统后续整合使用
@@ -14,7 +13,7 @@ export function buildMapSlidesPrompt(fileText: string): string {
 - id：kp_0、kp_1、kp_2 依次递增，用于跨步骤稳定引用，不得重复
 - concept：知识点的规范名称
 - knowledge：【A部分】完整还原该知识点的核心内容，包含定义、原理、关键结论、重要公式、需精确记忆的数值等
-- source：【A部分】在课件中的位置
+- source：【A部分】在课件中的位置，如"第3章 细胞膜结构，第5页"，要求具体到页，不能只写章节
 - explanation：【B部分】帮助学生真正理解该知识点，不是重复 knowledge 的内容
 
 {
@@ -93,12 +92,12 @@ ${userContextSection}
 嵌套约束：必学⊂补充⊂拓展，每档只写该档新增的内容，不重复前一档已有的内容。
 
 示例（正确做法）：
-  必学：{ "name": "ATP合成", "explanation": "细胞通过氧化磷酸化在线粒体内膜合成ATP" }
-  补充：{ "name": "ATP合酶结构", "explanation": "由F0和F1亚基组成，质子驱动旋转催化ADP磷酸化" }  ← 不重复"氧化磷酸化"
-  拓展：{ "name": "化学渗透假说", "explanation": "Mitchell提出质子梯度驱动ATP合成的历史背景" }  ← 不重复前两档
+  必学：{ "id": "kp_1", "tier": "必学", "concept": "ATP合成", "knowledge": "细胞通过氧化磷酸化在线粒体内膜合成ATP" }
+  补充：{ "id": "kp_2", "tier": "补充", "concept": "ATP合酶结构", "knowledge": "由F0和F1亚基组成，质子驱动旋转催化ADP磷酸化" }  ← 不重复"氧化磷酸化"
+  拓展：{ "id": "kp_3", "tier": "拓展", "concept": "化学渗透假说", "knowledge": "Mitchell提出质子梯度驱动ATP合成的历史背景" }  ← 不重复前两档
 
 示例（错误做法，避免）：
-  补充：{ "name": "ATP合酶结构", "explanation": "细胞通过氧化磷酸化合成ATP，ATP合酶由F0和F1亚基组成…" }  ← 重复了必学内容
+  补充：{ "id": "kp_2", "tier": "补充", "concept": "ATP合酶结构", "knowledge": "细胞通过氧化磷酸化合成ATP，ATP合酶由F0和F1亚基组成…" }  ← 重复了必学内容
 
 ━━ 真题信号强度说明 ━━
 
@@ -129,10 +128,8 @@ ${userContextSection}
     "order": 1,
     "importance": "高频",
     "knowledge_points": [
-      { "tier": "必学", "name": "知识点名", "explanation": "详细解释", "examples": ["示例"], "source": "来源位置" }
-    ],
-    "common_confusions": ["从该课件MAP原样传递"],
-    "memory_anchors": ["从该课件MAP原样传递"]
+      { "id": "kp_0", "tier": "必学", "concept": "知识点名", "knowledge": "完整知识内容（与MAP原文一致）", "source": "来源位置" }
+    ]
   }
 ]
 

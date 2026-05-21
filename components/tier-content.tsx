@@ -6,11 +6,12 @@ const TIER_COLOR: Record<string, string> = {
 };
 
 export type KnowledgePoint = {
+  id: string;
   tier: "必学" | "补充" | "拓展";
-  name: string;
-  explanation: string;
-  examples?: string[];
+  concept: string;
+  knowledge: string;
   source?: string;
+  explanation?: string;  // B部分，帮助理解
 };
 
 type TierContentProps = {
@@ -36,7 +37,7 @@ export default function TierContent({ point, index, collapsed, onToggle }: TierC
         <div className="flex items-start justify-between gap-2">
           <span className="text-primary text-sm font-medium leading-snug">
             <span className="text-muted mr-1.5">{index}.</span>
-            {point.name}
+            {point.concept}
           </span>
           <button
             onClick={onToggle}
@@ -48,15 +49,13 @@ export default function TierContent({ point, index, collapsed, onToggle }: TierC
 
         {/* 展开内容 */}
         {!collapsed && (
-          <div className="mt-2 space-y-1.5">
-            <p className="text-muted text-sm leading-relaxed">{point.explanation}</p>
+          <div className="mt-2 space-y-2">
+            <p className="text-muted text-sm leading-relaxed">{point.knowledge}</p>
 
-            {point.examples && point.examples.length > 0 && (
-              <ul className="text-muted text-sm list-disc list-inside space-y-0.5">
-                {point.examples.map((ex, i) => (
-                  <li key={i}>{ex}</li>
-                ))}
-              </ul>
+            {point.explanation && (
+              <p className="text-muted text-sm leading-relaxed border-l-2 border-white/10 pl-3">
+                {point.explanation}
+              </p>
             )}
 
             {point.source && (

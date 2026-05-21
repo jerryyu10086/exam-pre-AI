@@ -59,14 +59,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const reducePrompt = buildReducePrompt(JSON.stringify(mapResults, null, 2), user_context);
+    // 送 REDUCE 前剥掉 B部分（explanation），只发 A部分给 REDUCE
+    const reduceInput = mapResults.map((entry) => {
+      if (entry.material_type !== "slides") return entry;
+      const data = entry.data as Record<string, unknown>;
+      const kps = ((data.knowledge_points ?? []) as Record<string, unknown>[]).map(
+        ({ explanation: _e, ...rest }) => rest
+      );
+      return { ...entry, data: { ...data, knowledge_points: kps } };
+    });
+
+    const reducePrompt = buildReducePrompt(JSON.stringify(reduceInput, null, 2), user_context);
     const reduceRaw = await callDeepSeek([{ role: "user", content: reducePrompt }]);
-    const planData = extractJSON(reduceRaw);
+    const planData = extractJSON(reduceRaw) as Record<string, unknown>[];
+
+    // REDUCE 返回后按 id 将 B部分（explanation）从 maps_cache 补回
+    const explanationLookup = new Map<string, Map<string, string>>();
+    for (const entry of mapResults) {
+      if (entry.material_type !== "slides") continue;
+      const kps = ((entry.data as Record<string, unknown>).knowledge_points ?? []) as Record<string, unknown>[];
+      const fileMap = new Map<string, string>();
+      for (const kp of kps) {
+        if (kp.id && kp.explanation) fileMap.set(kp.id as string, kp.explanation as string);
+      }
+      explanationLookup.set(entry.file_name, fileMap);
+    }
+
+    const mergedPlanData = planData.map((fileEntry) => {
+      const fileMap = explanationLookup.get(fileEntry.file_name as string);
+      if (!fileMap) return fileEntry;
+      const kps = ((fileEntry.knowledge_points ?? []) as Record<string, unknown>[]).map((kp) => ({
+        ...kp,
+        explanation: fileMap.get(kp.id as string) ?? "",
+      }));
+      return { ...fileEntry, knowledge_points: kps };
+    });
 
     const { error: upsertError } = await supabase
       .from("plans")
       .upsert(
-        { exam_id, data: planData, maps_cache: mapResults },
+        { exam_id, data: mergedPlanData, maps_cache: mapResults },
         { onConflict: "exam_id" }
       );
 
@@ -74,7 +106,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: upsertError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, plan: planData });
+    return NextResponse.json({ success: true, plan: mergedPlanData });
   } catch (err) {
     console.error("Plan generation error:", err);
     return NextResponse.json({ error: "服务器错误" }, { status: 500 });

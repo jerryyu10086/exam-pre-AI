@@ -15,7 +15,7 @@ const IMPORTANCE_STARS: Record<string, string> = {
 
 export type KnowledgePoint = {
   tier: "必学" | "补充" | "拓展";
-  name: string;
+  concept: string;
 };
 
 type ChapterCardProps = {
@@ -35,10 +35,10 @@ export default function ChapterCard({
 }: ChapterCardProps) {
   const stars = IMPORTANCE_STARS[importance] ?? "★";
 
-  // 按档位分组，只保留 name
+  // 按档位分组，只保留 concept
   const byTier: Record<string, string[]> = { "必学": [], "补充": [], "拓展": [] };
   for (const kp of knowledgePoints) {
-    if (byTier[kp.tier]) byTier[kp.tier].push(kp.name);
+    if (byTier[kp.tier]) byTier[kp.tier].push(kp.concept);
   }
 
   return (
