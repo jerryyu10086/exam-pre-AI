@@ -8,6 +8,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import { preprocessMath } from "@/lib/math";
 
 type FileEntry = {
   file_name: string;
@@ -318,7 +319,7 @@ export default function ChapterPage() {
                             h3: ({ children }) => <h3 className="font-semibold mb-1 mt-2">{children}</h3>,
                           }}
                         >
-                          {msg.content}
+                          {preprocessMath(msg.content)}
                         </ReactMarkdown>
                       )}
                     </div>

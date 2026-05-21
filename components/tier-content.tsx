@@ -2,6 +2,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import { preprocessMath } from "@/lib/math";
 
 // 档位颜色使用 CSS 变量，不 hardcode
 const TIER_COLOR: Record<string, string> = {
@@ -57,14 +58,14 @@ export default function TierContent({ point, index, collapsed, onToggle }: TierC
           <div className="mt-2 space-y-2">
             <div className="text-muted text-sm leading-relaxed prose prose-invert prose-sm max-w-none">
               <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                {point.knowledge}
+                {preprocessMath(point.knowledge)}
               </ReactMarkdown>
             </div>
 
             {point.explanation && (
               <div className="text-muted text-sm leading-relaxed border-l-2 border-white/10 pl-3 prose prose-invert prose-sm max-w-none">
                 <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                  {point.explanation}
+                  {preprocessMath(point.explanation)}
                 </ReactMarkdown>
               </div>
             )}

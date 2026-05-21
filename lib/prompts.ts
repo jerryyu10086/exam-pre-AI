@@ -4,6 +4,7 @@ export function buildMapSlidesPrompt(fileText: string): string {
 提取要求：
 - 覆盖课件中出现的所有知识点，不做筛选和遗漏
 - 重要性不在此阶段判断，由后续步骤决定
+- 所有数学公式使用 $（行内）或 $$（独立行）标注，不使用其他括号形式
 
 每个知识点分两部分输出：
 - A部分（knowledge、source）：完整还原知识点的内容，供系统后续整合使用
