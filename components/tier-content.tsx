@@ -1,3 +1,8 @@
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+
 // 档位颜色使用 CSS 变量，不 hardcode
 const TIER_COLOR: Record<string, string> = {
   "必学": "var(--color-tier-must)",
@@ -50,12 +55,18 @@ export default function TierContent({ point, index, collapsed, onToggle }: TierC
         {/* 展开内容 */}
         {!collapsed && (
           <div className="mt-2 space-y-2">
-            <p className="text-muted text-sm leading-relaxed">{point.knowledge}</p>
+            <div className="text-muted text-sm leading-relaxed prose prose-invert prose-sm max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                {point.knowledge}
+              </ReactMarkdown>
+            </div>
 
             {point.explanation && (
-              <p className="text-muted text-sm leading-relaxed border-l-2 border-white/10 pl-3">
-                {point.explanation}
-              </p>
+              <div className="text-muted text-sm leading-relaxed border-l-2 border-white/10 pl-3 prose prose-invert prose-sm max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                  {point.explanation}
+                </ReactMarkdown>
+              </div>
             )}
 
             {point.source && (

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 
 type Message = { id: string; role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; last_message: string };
@@ -215,7 +217,8 @@ export default function GlobalQAPage() {
                     <p className="whitespace-pre-wrap">{msg.content}</p>
                   ) : (
                     <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
                       components={{
                         p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
                         strong: ({ children }) => <strong className="font-semibold">{children}</strong>,

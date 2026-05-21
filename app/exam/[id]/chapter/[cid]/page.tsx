@@ -6,6 +6,8 @@ import TierContent, { type KnowledgePoint } from "@/components/tier-content";
 import { useChat } from "@/hooks/useChat";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 
 type FileEntry = {
   file_name: string;
@@ -302,7 +304,8 @@ export default function ChapterPage() {
                         <p className="whitespace-pre-wrap">{msg.content}</p>
                       ) : (
                         <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
                           components={{
                             p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
                             strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
