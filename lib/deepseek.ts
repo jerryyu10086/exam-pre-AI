@@ -30,9 +30,16 @@ export async function callDeepSeek(messages: Message[]): Promise<string> {
   return data.choices[0].message.content as string;
 }
 
-// DeepSeek 有时在 JSON 外包一层 markdown 代码块，这里统一处理
+// 从 DeepSeek 输出中提取 JSON：优先取最后一个代码块（兼容 CoT 推理前缀），兜底直接解析
 export function extractJSON(text: string): unknown {
-  const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const jsonStr = match ? match[1] : text;
-  return JSON.parse(jsonStr.trim());
+  const matches = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)];
+  if (matches.length > 0) {
+    return JSON.parse(matches[matches.length - 1][1].trim());
+  }
+  // 兜底：从最后一个 [ 开始找 JSON 数组
+  const lastBracket = text.lastIndexOf("[");
+  if (lastBracket !== -1) {
+    return JSON.parse(text.slice(lastBracket).trim());
+  }
+  return JSON.parse(text.trim());
 }
