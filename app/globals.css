@@ -26,6 +26,10 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+html {
+  overflow-y: scroll;
+}
+
 /* 全局滚动条主题化（Chrome/Edge/Safari） */
 ::-webkit-scrollbar {
   width: 12px;

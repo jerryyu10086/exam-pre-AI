@@ -47,8 +47,29 @@ export default function Home() {
   const renameExamInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch("/api/folder").then((r) => r.json()).then((d) => setFolders(Array.isArray(d) ? d : []));
-    fetch("/api/exam").then((r) => r.json()).then((d) => setExams(Array.isArray(d) ? d : []));
+    // 先读缓存立即渲染，消除空白闪烁
+    try {
+      const cached = sessionStorage.getItem("p1_cache");
+      if (cached) {
+        const { folders: f, exams: e } = JSON.parse(cached);
+        if (Array.isArray(f)) setFolders(f);
+        if (Array.isArray(e)) setExams(e);
+      }
+    } catch {}
+
+    // 后台拉最新数据
+    Promise.all([
+      fetch("/api/folder").then((r) => r.json()),
+      fetch("/api/exam").then((r) => r.json()),
+    ]).then(([f, e]) => {
+      const folders = Array.isArray(f) ? f : [];
+      const exams = Array.isArray(e) ? e : [];
+      setFolders(folders);
+      setExams(exams);
+      try {
+        sessionStorage.setItem("p1_cache", JSON.stringify({ folders, exams }));
+      } catch {}
+    });
   }, []);
 
   useEffect(() => { if (creatingFolder) folderInputRef.current?.focus(); }, [creatingFolder]);

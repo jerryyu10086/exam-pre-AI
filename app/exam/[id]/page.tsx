@@ -22,29 +22,39 @@ export default function ExamDetailPage() {
   const [hasPlan, setHasPlan] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/exam`)
-      .then((r) => r.json())
-      .then((list: { id: string; name: string }[]) => {
-        const found = list.find((e) => e.id === params.id);
-        if (found) setExamName(found.name);
-      });
+    const cacheKey = `p2_${params.id}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const { name, counts: c, hasPlan: h } = JSON.parse(cached);
+        if (name) setExamName(name);
+        if (c) setCounts(c);
+        if (typeof h === "boolean") setHasPlan(h);
+      }
+    } catch {}
 
     const types: MaterialType[] = ["slides", "exam", "textbook"];
-    Promise.all(
-      types.map((t) =>
-        fetch(`/api/upload?exam_id=${params.id}&material_type=${t}`)
-          .then((r) => r.json())
-          .then((d) => ({ type: t, count: Array.isArray(d) ? d.length : 0 }))
-      )
-    ).then((results) => {
+    Promise.all([
+      fetch("/api/exam").then((r) => r.json()),
+      Promise.all(
+        types.map((t) =>
+          fetch(`/api/upload?exam_id=${params.id}&material_type=${t}`)
+            .then((r) => r.json())
+            .then((d) => ({ type: t, count: Array.isArray(d) ? d.length : 0 }))
+        )
+      ),
+      fetch(`/api/plan?exam_id=${params.id}`).then((r) => r.json()),
+    ]).then(([examList, countResults, planData]) => {
+      const found = (examList as { id: string; name: string }[]).find((e) => e.id === params.id);
+      const name = found?.name ?? "";
+      if (name) setExamName(name);
       const c = { slides: 0, exam: 0, textbook: 0 };
-      results.forEach(({ type, count }) => { c[type] = count; });
+      (countResults as { type: MaterialType; count: number }[]).forEach(({ type, count }) => { c[type] = count; });
       setCounts(c);
+      const h = Array.isArray(planData) && planData.length > 0;
+      setHasPlan(h);
+      try { sessionStorage.setItem(cacheKey, JSON.stringify({ name, counts: c, hasPlan: h })); } catch {}
     });
-
-    fetch(`/api/plan?exam_id=${params.id}`)
-      .then((r) => r.json())
-      .then((d) => setHasPlan(Array.isArray(d) && d.length > 0));
   }, [params.id]);
 
   const canAnalyze = counts.slides > 0 || counts.exam > 0;
@@ -58,11 +68,11 @@ export default function ExamDetailPage() {
       <div className="max-w-2xl mx-auto">
 
         <div className="flex items-center gap-2 mb-6">
-          <Link href="/" className="text-muted hover:text-primary text-sm transition-colors">
-            ← 返回
-          </Link>
+          <Link href="/" className="text-muted hover:text-primary text-sm transition-colors shrink-0">首页</Link>
           <span className="text-muted text-sm">/</span>
-          <h1 className="text-primary font-semibold text-base">
+          <Link href="/" className="text-muted hover:text-primary text-sm transition-colors shrink-0">返回</Link>
+          <span className="text-muted text-sm">/</span>
+          <h1 className="text-primary font-semibold text-base truncate">
             {examName || "加载中..."}
           </h1>
         </div>

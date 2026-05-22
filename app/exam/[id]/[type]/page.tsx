@@ -70,12 +70,9 @@ export default function UploadPage() {
         {/* 顶部导航 */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <Link
-              href={`/exam/${params.id}`}
-              className="text-muted hover:text-primary text-sm transition-colors"
-            >
-              ← 返回
-            </Link>
+            <Link href="/" className="text-muted hover:text-primary text-sm transition-colors shrink-0">首页</Link>
+            <span className="text-muted text-sm">/</span>
+            <Link href={`/exam/${params.id}`} className="text-muted hover:text-primary text-sm transition-colors shrink-0">返回</Link>
             <span className="text-muted text-sm">/</span>
             <h1 className="text-primary font-semibold text-base">{label}</h1>
           </div>

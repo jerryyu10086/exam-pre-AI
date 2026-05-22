@@ -27,6 +27,16 @@ export default function GlobalQAPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const cacheKey = `gqa_${params.id}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const { name, convs } = JSON.parse(cached);
+        if (name) setExamName(name);
+        if (Array.isArray(convs)) setConversations(convs);
+      }
+    } catch {}
+
     fetch("/api/exam")
       .then((r) => r.json())
       .then((list: { id: string; name: string }[]) => {
@@ -45,6 +55,10 @@ export default function GlobalQAPage() {
     const data = await res.json();
     if (Array.isArray(data)) {
       setConversations(data);
+      try {
+        const name = examName;
+        sessionStorage.setItem(`gqa_${params.id}`, JSON.stringify({ name, convs: data }));
+      } catch {}
       // 自动打开最近一条对话
       if (data.length > 0 && !activeConvId) {
         openConversation(data[0].id);

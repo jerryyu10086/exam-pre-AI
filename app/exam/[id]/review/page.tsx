@@ -24,12 +24,22 @@ export default function ReviewPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const cacheKey = `p5_${params.id}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const data = JSON.parse(cached);
+        if (Array.isArray(data)) setFiles(data);
+      }
+    } catch {}
+
     fetch(`/api/plan?exam_id=${params.id}`)
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
           const sorted = [...data].sort((a: FileEntry, b: FileEntry) => a.order - b.order);
           setFiles(sorted);
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(sorted)); } catch {}
         } else {
           setError("暂无复习计划，请先在「准备分析」页触发解析");
         }
@@ -50,24 +60,13 @@ export default function ReviewPage() {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-2xl mx-auto">
 
-        {/* 顶部栏 */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/exam/${params.id}`}
-              className="text-muted hover:text-primary text-sm transition-colors"
-            >
-              ← 返回
-            </Link>
-            <span className="text-muted text-sm">/</span>
-            <h1 className="text-primary font-semibold text-base">复习总览</h1>
-          </div>
-          <Link
-            href={`/exam/${params.id}/global-qa`}
-            className="text-sm text-muted border border-white/5 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/10 transition-colors"
-          >
-            💬 全局问答
-          </Link>
+        {/* 顶部导航 */}
+        <div className="flex items-center gap-2 mb-6">
+          <Link href="/" className="text-muted hover:text-primary text-sm transition-colors shrink-0">首页</Link>
+          <span className="text-muted text-sm">/</span>
+          <Link href={`/exam/${params.id}`} className="text-muted hover:text-primary text-sm transition-colors shrink-0">返回</Link>
+          <span className="text-muted text-sm">/</span>
+          <h1 className="text-primary font-semibold text-base">复习总览</h1>
         </div>
 
         {/* 档位图例 */}
@@ -84,12 +83,22 @@ export default function ReviewPage() {
           ))}
         </div>
 
-        {/* 统计行 */}
-        {stats && (
-          <p className="text-muted text-sm mb-5">
-            📊 共 {stats.total} 份课件，高频 {stats.高频} / 中频 {stats.中频} / 低频 {stats.低频}
-          </p>
-        )}
+        {/* 统计行 + 全局问答入口 */}
+        <div className="flex items-center justify-between mb-5">
+          {stats ? (
+            <p className="text-muted text-sm">
+              📊 共 {stats.total} 份课件，高频 {stats.高频} / 中频 {stats.中频} / 低频 {stats.低频}
+            </p>
+          ) : (
+            <span />
+          )}
+          <Link
+            href={`/exam/${params.id}/global-qa`}
+            className="text-sm text-muted border border-white/5 rounded-md px-3 py-1 hover:text-primary hover:border-white/10 transition-colors shrink-0"
+          >
+            💬 全局问答
+          </Link>
+        </div>
 
         {error && <p className="text-tier-must text-sm mb-4">{error}</p>}
 

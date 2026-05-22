@@ -52,6 +52,12 @@ export default function ChapterPage() {
 
   // 加载章节数据
   useEffect(() => {
+    const cacheKey = `p6_${params.id}_${chapterOrder}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) setChapter(JSON.parse(cached));
+    } catch {}
+
     fetch(`/api/plan?exam_id=${params.id}`)
       .then((r) => r.json())
       .then((data) => {
@@ -61,7 +67,10 @@ export default function ChapterPage() {
         }
         const found = data.find((f: FileEntry) => f.order === chapterOrder);
         if (!found) setLoadError(`未找到第 ${chapterOrder} 份课件数据`);
-        else setChapter(found);
+        else {
+          setChapter(found);
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(found)); } catch {}
+        }
       })
       .catch(() => setLoadError("加载失败，请刷新重试"));
   }, [params.id, chapterOrder]);
@@ -147,77 +156,67 @@ export default function ChapterPage() {
       <div className="max-w-2xl mx-auto">
 
         {/* 顶部导航 */}
-        <div className="flex items-center gap-2 mb-4">
-          <Link
-            href={`/exam/${params.id}/review`}
-            className="text-muted hover:text-primary text-sm transition-colors"
-          >
-            ← 复习总览
-          </Link>
-          {chapter && (
-            <>
-              <span className="text-muted text-sm">/</span>
-              <h1 className="text-primary font-semibold text-base">
-                {chapter.display_name}
-              </h1>
-            </>
-          )}
+        <div className="flex items-center gap-2 mb-6">
+          <Link href="/" className="text-muted hover:text-primary text-sm transition-colors shrink-0">首页</Link>
+          <span className="text-muted text-sm">/</span>
+          <Link href={`/exam/${params.id}/review`} className="text-muted hover:text-primary text-sm transition-colors shrink-0">返回</Link>
+          <span className="text-muted text-sm">/</span>
+          <h1 className="text-primary font-semibold text-base truncate min-h-[1.5rem]">
+            {chapter?.display_name}
+          </h1>
         </div>
 
-        {/* 图例 + 控制栏 */}
-        <div className="flex flex-col gap-3 mb-5">
-          {/* 档位图例 */}
-          <div className="flex flex-col gap-1">
-            {TIER_LEGEND.map(({ label, desc, colorVar }) => (
-              <div key={label} className="flex items-center gap-2">
-                <div
-                  className="w-1 h-4 rounded-full shrink-0"
-                  style={{ backgroundColor: colorVar }}
-                />
-                <span className="text-muted text-sm">
-                  <span className="text-primary font-medium">{label}</span>
-                  {" — "}{desc}
-                </span>
-              </div>
-            ))}
-          </div>
+        {/* 档位图例 — 与 Page 5 完全对齐：gap-1.5 mb-5 */}
+        <div className="flex flex-col gap-1.5 mb-5">
+          {TIER_LEGEND.map(({ label, desc, colorVar }) => (
+            <div key={label} className="flex items-center gap-2">
+              <div
+                className="w-1 h-4 rounded-full shrink-0"
+                style={{ backgroundColor: colorVar }}
+              />
+              <span className="text-muted text-sm">
+                <span className="text-primary font-medium">{label}</span>
+                {" — "}{desc}
+              </span>
+            </div>
+          ))}
+        </div>
 
-          {/* 视图切换 + 折叠控制 */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setViewMode("sequential")}
-              className={`text-xs px-3 py-1 rounded-md border transition-colors ${
-                viewMode === "sequential"
-                  ? "bg-accent text-primary border-accent"
-                  : "bg-card border-white/10 text-muted hover:text-primary"
-              }`}
-            >
-              顺序查看
-            </button>
-            <button
-              onClick={() => setViewMode("tiered")}
-              className={`text-xs px-3 py-1 rounded-md border transition-colors ${
-                viewMode === "tiered"
-                  ? "bg-accent text-primary border-accent"
-                  : "bg-card border-white/10 text-muted hover:text-primary"
-              }`}
-            >
-              分层查看
-            </button>
-            <div className="flex-1" />
-            <button
-              onClick={expandAll}
-              className="text-xs px-3 py-1 rounded-md border bg-card border-white/10 text-muted hover:text-primary transition-colors"
-            >
-              全部展开
-            </button>
-            <button
-              onClick={collapseAll}
-              className="text-xs px-3 py-1 rounded-md border bg-card border-white/10 text-muted hover:text-primary transition-colors"
-            >
-              全部折叠
-            </button>
-          </div>
+        {/* 视图切换 + 折叠控制 */}
+        <div className="flex items-center gap-2 flex-wrap mb-5">
+          <button
+            onClick={() => setViewMode("sequential")}
+            className={`text-xs px-3 py-1 rounded-md border transition-colors ${
+              viewMode === "sequential"
+                ? "bg-accent text-primary border-accent"
+                : "bg-card border-white/10 text-muted hover:text-primary"
+            }`}
+          >
+            顺序查看
+          </button>
+          <button
+            onClick={() => setViewMode("tiered")}
+            className={`text-xs px-3 py-1 rounded-md border transition-colors ${
+              viewMode === "tiered"
+                ? "bg-accent text-primary border-accent"
+                : "bg-card border-white/10 text-muted hover:text-primary"
+            }`}
+          >
+            分层查看
+          </button>
+          <div className="flex-1" />
+          <button
+            onClick={expandAll}
+            className="text-xs px-3 py-1 rounded-md border bg-card border-white/10 text-muted hover:text-primary transition-colors"
+          >
+            全部展开
+          </button>
+          <button
+            onClick={collapseAll}
+            className="text-xs px-3 py-1 rounded-md border bg-card border-white/10 text-muted hover:text-primary transition-colors"
+          >
+            全部折叠
+          </button>
         </div>
 
         {/* 错误提示 */}
