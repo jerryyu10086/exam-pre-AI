@@ -25,9 +25,10 @@ type TierContentProps = {
   index: number;
   collapsed: boolean;
   onToggle: () => void;
+  onAsk?: (concept: string) => void;
 };
 
-export default function TierContent({ point, index, collapsed, onToggle }: TierContentProps) {
+export default function TierContent({ point, index, collapsed, onToggle, onAsk }: TierContentProps) {
   const color = TIER_COLOR[point.tier] ?? TIER_COLOR["必学"];
 
   return (
@@ -72,6 +73,14 @@ export default function TierContent({ point, index, collapsed, onToggle }: TierC
 
             {point.source && (
               <p className="text-muted text-xs">📍 {point.source}</p>
+            )}
+            {onAsk && (
+              <button
+                onClick={() => onAsk(point.concept)}
+                className="text-accent hover:text-accent-hover text-xs transition-colors mt-1"
+              >
+                问 AI →
+              </button>
             )}
           </div>
         )}

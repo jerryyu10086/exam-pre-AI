@@ -36,15 +36,18 @@ export default function ChapterPage() {
 
   // ── 渲染控制 ──────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<ViewMode>("sequential");
-  const [collapsedSet, setCollapsedSet] = useState<Set<number>>(new Set());
+  const [collapsedSet, setCollapsedSet] = useState<Set<string>>(new Set());
 
-  // ── 对话区 ────────────────────────────────────────────────
+  // ── 对话抽屉 ──────────────────────────────────────────────
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const {
     conversations, activeConvId, messages, input, setInput, sending,
-    openConversation, resetConversation, sendMessage, deleteConversations,
+    openConversation, resetConversation, sendMessage, deleteConversations, renameConversation,
   } = useChat(params.id, chapterOrder);
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null);
   const [deletingConv, setDeletingConv] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 加载章节数据
@@ -69,28 +72,52 @@ export default function ChapterPage() {
   }, [messages]);
 
   // ── 折叠控制 ──────────────────────────────────────────────
-  function toggleCollapse(index: number) {
+  function toggleCollapse(id: string) {
     setCollapsedSet((prev) => {
       const next = new Set(prev);
-      next.has(index) ? next.delete(index) : next.add(index);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   }
 
   function collapseAll() {
     if (!chapter) return;
-    setCollapsedSet(new Set(chapter.knowledge_points.map((_, i) => i)));
+    setCollapsedSet(new Set(chapter.knowledge_points.map((kp) => kp.id)));
   }
 
   function expandAll() {
     setCollapsedSet(new Set());
   }
 
+  // 顺序查看：按 kp_N 的 N 升序排列，还原 MAP 阶段（即 PDF）原始顺序
+  function getSortedByOriginalOrder() {
+    return [...(chapter?.knowledge_points ?? [])].sort((a, b) => {
+      const ai = parseInt(a.id.replace("kp_", ""), 10);
+      const bi = parseInt(b.id.replace("kp_", ""), 10);
+      return ai - bi;
+    });
+  }
+
   // ── 分层视图：按 tier 分组 ──────────────────────────────
   function getPointsByTier(tier: string) {
-    return (chapter?.knowledge_points ?? [])
-      .map((kp, i) => ({ kp, originalIndex: i }))
-      .filter(({ kp }) => kp.tier === tier);
+    return (chapter?.knowledge_points ?? []).filter((kp) => kp.tier === tier);
+  }
+
+  // ── 对话改名 ─────────────────────────────────────────────
+  function startRename(conv: { id: string; title: string }) {
+    setRenamingId(conv.id);
+    setRenameValue(conv.title);
+  }
+
+  async function commitRename(convId: string) {
+    const trimmed = renameValue.trim();
+    if (trimmed) await renameConversation(convId, trimmed);
+    setRenamingId(null);
+  }
+
+  function handleRenameKeyDown(e: React.KeyboardEvent<HTMLInputElement>, convId: string) {
+    if (e.key === "Enter") { e.preventDefault(); commitRename(convId); }
+    if (e.key === "Escape") setRenamingId(null);
   }
 
   // ── 对话区辅助 ────────────────────────────────────────────
@@ -109,9 +136,14 @@ export default function ChapterPage() {
     }
   }
 
+  function handleAsk(concept: string) {
+    setDrawerOpen(true);
+    setInput(`关于「${concept}」，`);
+  }
+
   // ── render ────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className={`min-h-screen bg-background pl-6 pt-6 pb-6 transition-all duration-300 ${drawerOpen ? "pr-[440px]" : "pr-6"}`}>
       <div className="max-w-2xl mx-auto">
 
         {/* 顶部导航 */}
@@ -193,15 +225,16 @@ export default function ChapterPage() {
 
         {/* ── 知识点列表 ── */}
         {chapter && (
-          <div className="flex flex-col gap-3 mb-10">
+          <div className="flex flex-col gap-3 mb-8">
             {viewMode === "sequential" ? (
-              chapter.knowledge_points.map((kp, i) => (
+              getSortedByOriginalOrder().map((kp, i) => (
                 <TierContent
-                  key={i}
+                  key={kp.id}
                   point={kp}
                   index={i + 1}
-                  collapsed={collapsedSet.has(i)}
-                  onToggle={() => toggleCollapse(i)}
+                  collapsed={collapsedSet.has(kp.id)}
+                  onToggle={() => toggleCollapse(kp.id)}
+                  onAsk={handleAsk}
                 />
               ))
             ) : (
@@ -219,13 +252,14 @@ export default function ChapterPage() {
                       <span className="text-primary text-sm font-medium">{tier}</span>
                     </div>
                     <div className="flex flex-col gap-3 pl-3">
-                      {pts.map(({ kp, originalIndex }) => (
+                      {pts.map((kp) => (
                         <TierContent
-                          key={originalIndex}
+                          key={kp.id}
                           point={kp}
-                          index={originalIndex + 1}
-                          collapsed={collapsedSet.has(originalIndex)}
-                          onToggle={() => toggleCollapse(originalIndex)}
+                          index={parseInt(kp.id.replace("kp_", ""), 10) + 1}
+                          collapsed={collapsedSet.has(kp.id)}
+                          onToggle={() => toggleCollapse(kp.id)}
+                          onAsk={handleAsk}
                         />
                       ))}
                     </div>
@@ -235,126 +269,154 @@ export default function ChapterPage() {
             )}
           </div>
         )}
+      </div>
 
-        {/* ── 对话区 ── */}
-        <div className="border-t border-white/5 pt-6">
-          <h2 className="text-base font-medium text-primary mb-4">💬 章节对话</h2>
+      {/* ── 对话抽屉切换按钮（右侧固定 tab） ── */}
+      <button
+        onClick={() => setDrawerOpen((v) => !v)}
+        style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+        className={`fixed top-1/2 -translate-y-1/2 bg-accent hover:bg-accent-hover text-primary text-xs font-medium px-2 py-4 rounded-l-lg z-40 shadow-lg transition-all duration-300 ${
+          drawerOpen ? "right-[440px]" : "right-0"
+        }`}
+      >
+        {drawerOpen ? "收起" : "💬 对话"}
+      </button>
 
-          {/* 对话卡片列表 */}
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-            {conversations.map((conv) => (
-              // 外层用 div 避免 button 嵌套 button（HTML 规范不允许）
-              <div
-                key={conv.id}
-                className={`shrink-0 w-40 bg-card border rounded-lg p-3 transition-colors cursor-pointer ${
-                  activeConvId === conv.id
-                    ? "border-accent"
-                    : "border-white/5 hover:border-white/15"
-                }`}
-              >
-                <div onClick={() => openConversation(conv.id)} className="text-left">
-                  <p className="text-primary text-xs font-medium truncate mb-1">
-                    {conv.title}
-                  </p>
-                  <p className="text-muted text-xs truncate">{conv.last_message}</p>
+      {/* ── 右侧对话抽屉 ── */}
+      <div
+        className={`fixed top-0 right-0 h-full w-[440px] bg-card border-l border-white/5 z-30 flex flex-col transition-transform duration-300 ${
+          drawerOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        {/* 抽屉顶栏 */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
+          <h2 className="text-sm font-medium text-primary">💬 章节对话</h2>
+          <p className="text-muted text-xs">基于本章课件随时提问，无需重新上传</p>
+        </div>
+
+        {/* 对话卡片列表 */}
+        <div className="chat-scrollbar flex gap-2 overflow-x-auto px-4 py-3 border-b border-white/5 shrink-0">
+          <button
+            onClick={resetConversation}
+            className="shrink-0 w-24 bg-background border border-white/5 hover:border-white/15 rounded-lg p-2.5 flex items-center justify-center text-muted hover:text-primary transition-colors text-xs"
+          >
+            + 新建
+          </button>
+          {conversations.map((conv) => (
+            <div
+              key={conv.id}
+              className={`shrink-0 w-36 bg-background border rounded-lg p-2.5 transition-colors cursor-pointer ${
+                activeConvId === conv.id
+                  ? "border-accent"
+                  : "border-white/5 hover:border-white/15"
+              }`}
+            >
+              {renamingId === conv.id ? (
+                <input
+                  autoFocus
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={() => commitRename(conv.id)}
+                  onKeyDown={(e) => handleRenameKeyDown(e, conv.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full bg-card border border-accent/50 rounded px-1.5 py-0.5 text-primary text-xs outline-none mb-1"
+                />
+              ) : (
+                <div onClick={() => openConversation(conv.id)}>
+                  <p className="text-primary text-xs font-medium truncate mb-1">{conv.title}</p>
                 </div>
+              )}
+              <div className="flex gap-2 mt-1.5">
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmDelete([conv.id]);
-                  }}
-                  className="text-muted text-xs mt-2 hover:text-tier-must transition-colors"
+                  onClick={(e) => { e.stopPropagation(); startRename(conv); }}
+                  className="text-muted text-xs hover:text-primary transition-colors"
+                >
+                  改名
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setConfirmDelete([conv.id]); }}
+                  className="text-muted text-xs hover:text-tier-must transition-colors"
                 >
                   删除
                 </button>
               </div>
-            ))}
+            </div>
+          ))}
+        </div>
 
-            {/* 新建对话按钮：清空当前对话，下次发送自动新建 */}
-            <button
-              onClick={resetConversation}
-              className="shrink-0 w-32 bg-card border border-white/5 hover:border-white/15 rounded-lg p-3 flex items-center justify-center text-muted hover:text-primary transition-colors text-sm"
+        {/* 消息区 */}
+        <div className="chat-scrollbar flex-1 overflow-y-auto p-4 space-y-3" style={{ scrollbarGutter: "stable" }}>
+          {messages.length === 0 && (
+            <p className="text-muted text-sm text-center py-8">
+              {conversations.length === 0
+                ? "基于本章课件，随时提问——AI 已读完全文"
+                : "输入问题继续对话，或点「+ 新建」开新上下文"}
+            </p>
+          )}
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              + 新建对话
-            </button>
-          </div>
-
-          {/* 消息列表（常驻显示，不需要主动打开） */}
-          <div className="bg-card border border-white/5 rounded-lg flex flex-col">
-            <div className="flex-1 p-4 space-y-3 max-h-80 overflow-y-auto">
-                {messages.length === 0 && (
-                  <p className="text-muted text-sm text-center py-4">
-                    {conversations.length === 0
-                      ? "输入问题，开始你的第一个对话"
-                      : "输入问题继续对话，或点「+ 新建对话」开新上下文"}
-                  </p>
-                )}
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              <div
+                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                  msg.role === "user"
+                    ? "bg-accent text-primary"
+                    : "bg-background text-primary border border-white/5"
+                }`}
+              >
+                {msg.role === "user" ? (
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                ) : (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                    components={{
+                      p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      em: ({ children }) => <em className="italic">{children}</em>,
+                      ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-0.5">{children}</ol>,
+                      li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                      code: ({ children }) => <code className="bg-white/10 rounded px-1 text-xs font-mono">{children}</code>,
+                      pre: ({ children }) => <pre className="bg-white/10 rounded p-2 text-xs font-mono mb-2 overflow-x-auto whitespace-pre">{children}</pre>,
+                      h3: ({ children }) => <h3 className="font-semibold mb-1 mt-2">{children}</h3>,
+                    }}
                   >
-                    <div
-                      className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                        msg.role === "user"
-                          ? "bg-accent text-primary"
-                          : "bg-background text-primary border border-white/5"
-                      }`}
-                    >
-                      {msg.role === "user" ? (
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
-                      ) : (
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm, remarkMath]}
-                          rehypePlugins={[rehypeKatex]}
-                          components={{
-                            p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
-                            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                            em: ({ children }) => <em className="italic">{children}</em>,
-                            ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
-                            ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-0.5">{children}</ol>,
-                            li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-                            code: ({ children }) => <code className="bg-white/10 rounded px-1 text-xs font-mono">{children}</code>,
-                            pre: ({ children }) => <pre className="bg-white/10 rounded p-2 text-xs font-mono mb-2 overflow-x-auto whitespace-pre">{children}</pre>,
-                            h3: ({ children }) => <h3 className="font-semibold mb-1 mt-2">{children}</h3>,
-                          }}
-                        >
-                          {preprocessMath(msg.content)}
-                        </ReactMarkdown>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {sending && (
-                  <div className="flex justify-start">
-                    <div className="bg-background border border-white/5 rounded-lg px-3 py-2">
-                      <p className="text-muted text-sm">思考中...</p>
-                    </div>
-                  </div>
+                    {preprocessMath(msg.content)}
+                  </ReactMarkdown>
                 )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* 输入区 */}
-              <div className="border-t border-white/5 p-3 flex gap-2">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="输入问题，Enter 发送，Shift+Enter 换行"
-                  rows={2}
-                  className="flex-1 bg-background border border-white/5 rounded-md px-3 py-2 text-primary text-sm placeholder:text-muted outline-none focus:border-accent/50 transition-colors resize-none"
-                />
-                <button
-                  onClick={sendMessage}
-                  disabled={!input.trim() || sending}
-                  className="self-end bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md px-4 py-2 text-sm font-medium transition-colors"
-                >
-                  发送
-                </button>
               </div>
             </div>
-          </div>
+          ))}
+          {sending && (
+            <div className="flex justify-start">
+              <div className="bg-background border border-white/5 rounded-lg px-3 py-2">
+                <p className="text-muted text-sm">思考中...</p>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* 输入区 */}
+        <div className="border-t border-white/5 p-3 flex gap-2 shrink-0">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="输入问题，Enter 发送，Shift+Enter 换行"
+            rows={2}
+            className="flex-1 bg-background border border-white/5 rounded-md px-3 py-2 text-primary text-sm placeholder:text-muted outline-none focus:border-accent/50 transition-colors resize-none"
+          />
+          <button
+            onClick={sendMessage}
+            disabled={!input.trim() || sending}
+            className="self-end bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md px-4 py-2 text-sm font-medium transition-colors"
+          >
+            发送
+          </button>
+        </div>
       </div>
 
       {/* 删除确认弹窗 */}

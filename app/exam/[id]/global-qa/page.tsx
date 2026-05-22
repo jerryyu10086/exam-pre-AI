@@ -21,8 +21,9 @@ export default function GlobalQAPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loadedChapters, setLoadedChapters] = useState<string[]>([]);
-  const [isFallback, setIsFallback] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,7 +97,6 @@ export default function GlobalQAPage() {
       }
 
       setLoadedChapters(data.loaded_chapters ?? []);
-      setIsFallback(data.is_fallback ?? false);
 
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== tempId),
@@ -109,6 +109,31 @@ export default function GlobalQAPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  function startRename(conv: Conversation) {
+    setRenamingId(conv.id);
+    setRenameValue(conv.title);
+  }
+
+  async function commitRename(convId: string) {
+    const trimmed = renameValue.trim();
+    if (trimmed) {
+      await fetch("/api/global-chat", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: convId, title: trimmed }),
+      });
+      setConversations((prev) =>
+        prev.map((c) => (c.id === convId ? { ...c, title: trimmed } : c))
+      );
+    }
+    setRenamingId(null);
+  }
+
+  function handleRenameKeyDown(e: React.KeyboardEvent<HTMLInputElement>, convId: string) {
+    if (e.key === "Enter") { e.preventDefault(); commitRename(convId); }
+    if (e.key === "Escape") setRenamingId(null);
   }
 
   async function handleDeleteConv(id: string) {
@@ -152,7 +177,13 @@ export default function GlobalQAPage() {
         </p>
 
         {/* 对话卡片列表 */}
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
+        <div className="chat-scrollbar flex gap-2 overflow-x-auto pb-2 mb-4">
+          <button
+            onClick={resetConversation}
+            className="shrink-0 w-28 bg-card border border-white/5 hover:border-white/15 rounded-lg p-3 flex items-center justify-center text-muted hover:text-primary transition-colors text-sm"
+          >
+            + 新建
+          </button>
           {conversations.map((conv) => (
             <div
               key={conv.id}
@@ -162,39 +193,51 @@ export default function GlobalQAPage() {
                   : "border-white/5 hover:border-white/15"
               }`}
             >
-              <div onClick={() => openConversation(conv.id)}>
-                <p className="text-primary text-xs font-medium truncate mb-1">
-                  {conv.title}
-                </p>
-                <p className="text-muted text-xs truncate">{conv.last_message}</p>
+              {renamingId === conv.id ? (
+                <input
+                  autoFocus
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={() => commitRename(conv.id)}
+                  onKeyDown={(e) => handleRenameKeyDown(e, conv.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full bg-background border border-accent/50 rounded px-1.5 py-0.5 text-primary text-xs outline-none mb-1"
+                />
+              ) : (
+                <div onClick={() => openConversation(conv.id)}>
+                  <p className="text-primary text-xs font-medium truncate mb-1">
+                    {conv.title}
+                  </p>
+                </div>
+              )}
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={(e) => { e.stopPropagation(); startRename(conv); }}
+                  className="text-muted text-xs hover:text-primary transition-colors"
+                >
+                  改名
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setConfirmDelete(conv.id); }}
+                  className="text-muted text-xs hover:text-tier-must transition-colors"
+                >
+                  删除
+                </button>
               </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); setConfirmDelete(conv.id); }}
-                className="text-muted text-xs mt-2 hover:text-tier-must transition-colors"
-              >
-                删除
-              </button>
             </div>
           ))}
-          <button
-            onClick={resetConversation}
-            className="shrink-0 w-32 bg-card border border-white/5 hover:border-white/15 rounded-lg p-3 flex items-center justify-center text-muted hover:text-primary transition-colors text-sm"
-          >
-            + 新建对话
-          </button>
         </div>
 
         {/* 已加载章节提示 */}
         {loadedChapters.length > 0 && (
           <p className="text-muted text-xs mb-3">
-            {isFallback ? "⚠ 未命中阈值，已加载全部章节：" : "已加载章节："}
-            <span className="text-accent">{loadedChapters.join("、")}</span>
+            已加载章节：<span className="text-accent">{loadedChapters.join("、")}</span>
           </p>
         )}
 
         {/* 消息区 + 输入框 */}
         <div className="bg-card border border-white/5 rounded-lg flex flex-col">
-          <div className="flex-1 p-4 space-y-3 max-h-96 overflow-y-auto">
+          <div className="chat-scrollbar flex-1 p-4 space-y-3 max-h-96 overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
             {messages.length === 0 && (
               <p className="text-muted text-sm text-center py-6">
                 {conversations.length === 0

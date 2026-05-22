@@ -241,3 +241,22 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "服务器错误" }, { status: 500 });
   }
 }
+
+// PATCH /api/global-chat  → 重命名对话
+export async function PATCH(request: NextRequest) {
+  try {
+    const { conversation_id, title } = await request.json();
+    if (!conversation_id || !title?.trim()) {
+      return NextResponse.json({ error: "缺少参数" }, { status: 400 });
+    }
+    const supabase = createServiceClient();
+    const { error } = await supabase
+      .from("conversations")
+      .update({ title: title.trim() })
+      .eq("id", conversation_id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ error: "服务器错误" }, { status: 500 });
+  }
+}
