@@ -174,12 +174,9 @@ export default function GlobalQAPage() {
 
         {/* 顶部 */}
         <div className="flex items-center gap-2 mb-6">
-          <Link
-            href={`/exam/${params.id}/review`}
-            className="text-muted hover:text-primary text-sm transition-colors"
-          >
-            ← 复习总览
-          </Link>
+          <Link href="/" className="text-muted hover:text-primary text-sm transition-colors shrink-0">首页</Link>
+          <span className="text-muted text-sm">/</span>
+          <Link href={`/exam/${params.id}/review`} className="text-muted hover:text-primary text-sm transition-colors shrink-0">返回</Link>
           <span className="text-muted text-sm">/</span>
           <h1 className="text-primary font-semibold text-base">
             {examName ? `${examName} · 全局问答` : "全局问答"}

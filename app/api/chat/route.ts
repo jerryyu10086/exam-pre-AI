@@ -97,11 +97,12 @@ export async function POST(request: NextRequest) {
       content: message.trim(),
     });
 
-    // 3. RAG：向量化查询 → 检索相关 chunks
+    // 3. RAG：向量化查询 → 只检索本章对应文件的 chunks
     const [queryEmbedding] = await embedBatch([message]);
     const { data: chunks } = await supabase.rpc("match_chunks", {
       query_embedding: queryEmbedding,
       match_exam_id: exam_id,
+      match_file_names: fileEntry?.file_name ? [fileEntry.file_name] : null,
       match_count: TOP_K,
     });
 
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
 
     const files = Array.isArray(planRow?.data) ? planRow.data : [];
     const fileEntry = files.find(
-      (f: { order: number }) => f.order === chapter_order
+      (f: { order: number; file_name: string }) => f.order === chapter_order
     ) ?? null;
 
     const systemPrompt = `你是课件答疑助手，基于以下检索内容和课件知识库回答问题。

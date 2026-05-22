@@ -59,6 +59,7 @@ create or replace function match_chunks(
   query_embedding vector(2048),
   match_exam_id uuid,
   match_material_type text default null,
+  match_file_names text[] default null,
   match_count int default 10
 )
 returns table(id uuid, content text, file_name text, similarity float)
@@ -69,6 +70,7 @@ as $$
   from chunks
   where exam_id = match_exam_id
     and (match_material_type is null or material_type = match_material_type)
+    and (match_file_names is null or file_name = any(match_file_names))
     and 1 - (embedding <=> query_embedding) >= 0.7
   order by embedding <=> query_embedding
   limit match_count;

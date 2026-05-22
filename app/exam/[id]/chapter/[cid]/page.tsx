@@ -146,6 +146,7 @@ export default function ChapterPage() {
   }
 
   function handleAsk(concept: string) {
+    resetConversation();
     setDrawerOpen(true);
     setInput(`关于「${concept}」，`);
   }

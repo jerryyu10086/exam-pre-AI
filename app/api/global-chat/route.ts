@@ -5,6 +5,7 @@ import { embedBatch } from "@/lib/embeddings";
 import {
   GLOBAL_QA_TOP_CHAPTERS,
   ROUTE_CONFIDENCE_THRESHOLD,
+  TOP_K,
 } from "@/lib/config";
 
 type KnowledgePoint = {
@@ -16,6 +17,7 @@ type KnowledgePoint = {
 };
 
 type Chapter = {
+  file_name: string;
   chapter_name: string;
   chapter_order: number;
   importance: string;
@@ -130,8 +132,21 @@ export async function POST(request: NextRequest) {
     const selected = (isFallback ? scored : aboveThreshold).slice(0, GLOBAL_QA_TOP_CHAPTERS);
 
     const loadedChapterNames = selected.map((x) => x.ch.chapter_name);
+    const selectedFileNames = selected.map((x) => x.ch.file_name).filter(Boolean);
 
-    // 3. 构建 system prompt
+    // 3. RAG：只搜命中章节对应文件的 chunks（复用已有 questionEmbedding）
+    const { data: chunks } = await supabase.rpc("match_chunks", {
+      query_embedding: questionEmbedding,
+      match_exam_id: exam_id,
+      match_file_names: selectedFileNames.length > 0 ? selectedFileNames : null,
+      match_count: TOP_K,
+    });
+
+    const retrievedContext = ((chunks as { content: string; file_name: string }[]) ?? [])
+      .map((c) => `[来源: ${c.file_name}]\n${c.content}`)
+      .join("\n\n---\n\n");
+
+    // 4. 构建 system prompt
     const contextText = selected
       .map(
         (x) =>
@@ -153,10 +168,13 @@ export async function POST(request: NextRequest) {
 3. 不要凭空发挥超出课件范围的内容
 4. 所有数学公式使用 $（行内）或 $$（独立行）标注，不使用其他括号形式
 
-章节内容：
-${contextText}`;
+章节知识库（MAP 结构化内容）：
+${contextText}
 
-    // 4. 获取或新建对话
+检索到的相关原文：
+${retrievedContext || "（未检索到相关内容）"}`;
+
+    // 5. 获取或新建对话
     let convId: string = conversation_id ?? "";
     let isNew = false;
 
@@ -176,14 +194,14 @@ ${contextText}`;
       isNew = true;
     }
 
-    // 5. 保存用户消息
+    // 6. 保存用户消息
     await supabase.from("messages").insert({
       conversation_id: convId,
       role: "user",
       content: message.trim(),
     });
 
-    // 6. 加载历史消息
+    // 7. 加载历史消息
     const { data: history } = await supabase
       .from("messages")
       .select("role, content")
@@ -199,10 +217,10 @@ ${contextText}`;
       })),
     ];
 
-    // 7. 调用 DeepSeek
+    // 8. 调用 DeepSeek
     const reply = await callDeepSeek(llmMessages);
 
-    // 8. 保存 assistant 消息
+    // 9. 保存 assistant 消息
     await supabase.from("messages").insert({
       conversation_id: convId,
       role: "assistant",
