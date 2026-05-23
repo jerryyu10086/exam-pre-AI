@@ -259,11 +259,12 @@ export async function GET(request: NextRequest) {
   if (!examId) return NextResponse.json({ error: "缺少 exam_id" }, { status: 400 });
   const supabase = createServiceClient();
   const includeCache = searchParams.get("include_cache") === "true";
-  const { data, error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
     .from("plans")
     .select(includeCache ? "data, maps_cache" : "data")
     .eq("exam_id", examId)
-    .single();
+    .single() as { data: { data?: unknown; maps_cache?: unknown } | null; error: { code: string; message: string } | null };
   if (error && error.code !== "PGRST116") {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
