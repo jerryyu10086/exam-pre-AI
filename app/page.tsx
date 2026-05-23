@@ -422,7 +422,7 @@ export default function Home() {
         {filteredExams.length === 0 ? (
           <p className="text-muted text-sm">暂无学科，点击右上角创建</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
             {filteredExams.map((exam) =>
               editMode ? (
                 <div
