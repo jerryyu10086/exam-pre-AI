@@ -58,7 +58,7 @@ export default function ReviewPage() {
 
   return (
     <div className="min-h-screen bg-background p-6">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
 
         {/* 顶部导航 */}
         <div className="flex items-center gap-2 mb-6">
