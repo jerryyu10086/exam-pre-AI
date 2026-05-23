@@ -26,6 +26,8 @@ export default function UploadPage() {
   const params = useParams<{ id: string; type: string }>();
   const inputRef = useRef<HTMLInputElement>(null);
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null);
+  const [hasPlan, setHasPlan] = useState(false);
+  const [showStaleHint, setShowStaleHint] = useState(false);
 
   const {
     pendingFiles, status, message, addFiles, removeFile, togglePendingHasAnswers, saveToKnowledgeBase,
@@ -37,7 +39,10 @@ export default function UploadPage() {
 
   useEffect(() => {
     loadUploadedFiles();
-  }, [loadUploadedFiles]);
+    fetch(`/api/plan?exam_id=${params.id}`)
+      .then((r) => r.json())
+      .then((d) => setHasPlan(Array.isArray(d) && d.length > 0));
+  }, [loadUploadedFiles, params.id]);
 
   // 文件全部删完后自动退出编辑模式
   useEffect(() => {
@@ -61,6 +66,7 @@ export default function UploadPage() {
     if (!confirmDelete) return;
     await deleteFiles(confirmDelete);
     setConfirmDelete(null);
+    if (hasPlan && params.type !== "textbook") setShowStaleHint(true);
   }
 
   return (
@@ -78,6 +84,20 @@ export default function UploadPage() {
         <p className="text-muted text-sm mb-6">
           上传材料越接近实际考试，分析结果越准确
         </p>
+
+        {showStaleHint && (
+          <div className="flex items-center justify-between bg-tier-supplement/10 border border-tier-supplement/30 rounded-lg px-4 py-2.5 mb-4">
+            <p className="text-tier-supplement text-xs">
+              ⚠ 文件已删除，当前复习计划可能与材料不符，建议前往重新解析
+            </p>
+            <button
+              onClick={() => setShowStaleHint(false)}
+              className="text-muted hover:text-primary text-xs ml-4 shrink-0 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* 已在知识库的文件 */}
         {uploadedFiles.length > 0 && (
