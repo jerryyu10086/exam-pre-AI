@@ -23,6 +23,8 @@ export function useChat(examId: string, chapterOrder: number) {
 
   // 只在首次加载时自动打开最近的对话，后续刷新列表不再重置
   const initialLoadDone = useRef(false);
+  // 已加载过的对话消息缓存，切换时立即渲染
+  const msgCache = useRef<Map<string, Message[]>>(new Map());
 
   const loadConversations = useCallback(async () => {
     const res = await fetch(
@@ -39,7 +41,11 @@ export function useChat(examId: string, chapterOrder: number) {
         const latest = data[0];
         setActiveConvId(latest.id);
         const msgRes = await fetch(`/api/chat?conversation_id=${latest.id}`);
-        if (msgRes.ok) setMessages(await msgRes.json());
+        if (msgRes.ok) {
+          const msgs: Message[] = await msgRes.json();
+          msgCache.current.set(latest.id, msgs);
+          setMessages(msgs);
+        }
       }
     }
   }, [examId, chapterOrder]);
@@ -48,11 +54,17 @@ export function useChat(examId: string, chapterOrder: number) {
     loadConversations();
   }, [loadConversations]);
 
-  // 切换到某个已有对话
+  // 切换到某个已有对话：有缓存则立即显示，后台静默刷新
   const openConversation = useCallback(async (convId: string) => {
     setActiveConvId(convId);
+    const cached = msgCache.current.get(convId);
+    setMessages(cached ?? []);
     const res = await fetch(`/api/chat?conversation_id=${convId}`);
-    if (res.ok) setMessages(await res.json());
+    if (res.ok) {
+      const msgs: Message[] = await res.json();
+      msgCache.current.set(convId, msgs);
+      setMessages(msgs);
+    }
   }, []);
 
   // 重置为空白状态（下一次发送会自动新建对话）
@@ -88,16 +100,20 @@ export function useChat(examId: string, chapterOrder: number) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "发送失败");
 
-      if (data.is_new) {
-        setActiveConvId(data.conversation_id);
-      }
+      const convId: string = data.is_new ? data.conversation_id : (activeConvId ?? data.conversation_id);
+      if (data.is_new) setActiveConvId(convId);
 
-      setMessages((prev) => [...prev, {
+      const replyMsg: Message = {
         id: `reply-${Date.now()}`,
         role: "assistant",
         content: data.reply,
         created_at: new Date().toISOString(),
-      }]);
+      };
+      setMessages((prev) => {
+        const next = [...prev, replyMsg];
+        msgCache.current.set(convId, next);
+        return next;
+      });
 
       await loadConversations();
       return true;
@@ -119,6 +135,7 @@ export function useChat(examId: string, chapterOrder: number) {
       });
       if (!res.ok) return;
 
+      ids.forEach((id) => msgCache.current.delete(id));
       if (activeConvId && ids.includes(activeConvId)) {
         setActiveConvId(null);
         setMessages([]);
