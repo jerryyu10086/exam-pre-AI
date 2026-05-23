@@ -130,23 +130,8 @@ export async function DELETE(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // 同步清除 maps_cache 中已删除文件的条目
-    const { data: plan } = await supabase
-      .from("plans")
-      .select("maps_cache")
-      .eq("exam_id", exam_id)
-      .single();
-
-    if (plan?.maps_cache && Array.isArray(plan.maps_cache)) {
-      const deleted = new Set(file_names);
-      const updated = (plan.maps_cache as { file_name: string }[]).filter(
-        (e) => !deleted.has(e.file_name)
-      );
-      await supabase
-        .from("plans")
-        .update({ maps_cache: updated })
-        .eq("exam_id", exam_id);
-    }
+    // maps_cache 保留不动：Page 2 通过对比 maps_cache 与当前 chunks 检测过期状态
+    // re-analysis 时会按当前 chunks 过滤掉已删文件并写入干净的 maps_cache
 
     return NextResponse.json({ success: true });
   } catch (err) {

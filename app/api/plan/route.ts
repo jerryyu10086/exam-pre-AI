@@ -43,29 +43,32 @@ export async function POST(request: NextRequest) {
         .single();
 
       const existingCache = (Array.isArray(cached?.maps_cache) ? cached.maps_cache : []) as MapEntry[];
-      const cachedNames = new Set(existingCache.map((e) => e.file_name));
 
-      // 查找知识库中尚未 MAP 的文件（新增文件）
+      // 获取当前知识库中存在的非课本文件
       const { data: currentChunks } = await supabase
         .from("chunks")
         .select("file_name")
         .eq("exam_id", exam_id)
         .neq("material_type", "textbook");
 
-      const newFileNames = [...new Set(
-        (currentChunks ?? [])
-          .map((c: { file_name: string }) => c.file_name)
-          .filter((f) => !cachedNames.has(f))
-      )];
+      const currentFileNames = new Set(
+        (currentChunks ?? []).map((c: { file_name: string }) => c.file_name)
+      );
+
+      // 过滤掉已删除文件的缓存条目
+      const filteredCache = existingCache.filter((e) => currentFileNames.has(e.file_name));
+      const cachedNames = new Set(filteredCache.map((e) => e.file_name));
+
+      // 找出新增文件（在 chunks 但不在过滤后的缓存里）
+      const newFileNames = [...currentFileNames].filter((f) => !cachedNames.has(f));
 
       if (newFileNames.length > 0) {
-        // 增量 MAP：只对新文件跑
         const newMapRun = await runMap(supabase, exam_id, newFileNames);
         if (newMapRun.dbError) return NextResponse.json({ error: `数据库查询失败：${newMapRun.dbError}` }, { status: 500 });
         if (newMapRun.failedFiles.length > 0) console.warn(`新文件 MAP 部分失败: ${newMapRun.failedFiles.join("、")}`);
-        mapResults = [...existingCache, ...newMapRun.results];
+        mapResults = [...filteredCache, ...newMapRun.results];
       } else {
-        mapResults = existingCache;
+        mapResults = filteredCache;
       }
 
       // 兜底：缓存为空时全量跑

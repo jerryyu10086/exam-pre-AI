@@ -116,12 +116,6 @@ export default function ExamDetailPage() {
           ))}
         </div>
 
-        {isStale && (
-          <p className="text-tier-supplement text-xs mb-3 flex items-center gap-1.5">
-            <span>⚠</span> 知识库已更新，当前复习计划可能与材料不符，建议重新解析
-          </p>
-        )}
-
         <div className="flex flex-col gap-3">
           <Link
             href={canAnalyze ? `/exam/${params.id}/plan` : "#"}
@@ -142,6 +136,15 @@ export default function ExamDetailPage() {
             >
               复习档案 →
             </Link>
+          )}
+
+          {isStale && (
+            <div className="flex items-center gap-2 bg-tier-supplement/10 border border-tier-supplement/30 rounded-lg px-4 py-3">
+              <span className="text-tier-supplement text-sm shrink-0">⚠</span>
+              <p className="text-tier-supplement text-xs">
+                知识库已更新，当前复习计划可能与材料不符，建议重新解析
+              </p>
+            </div>
           )}
         </div>
       </div>
