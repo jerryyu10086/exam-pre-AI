@@ -118,10 +118,13 @@ export default function ChapterPage() {
       .catch(() => setLoadError("加载失败，请刷新重试"));
   }, [params.id, chapterOrder]);
 
-  // 新消息时滚到底部
+  // 切换对话时直接跳底部，同一对话内新消息平滑滚动
+  const prevConvIdRef = useRef<string | null>(null);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const behavior = activeConvId !== prevConvIdRef.current ? "instant" : "smooth";
+    prevConvIdRef.current = activeConvId;
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, [messages, activeConvId]);
 
   // ── 折叠控制 ──────────────────────────────────────────────
   const toggleCollapse = useCallback((id: string) => {
