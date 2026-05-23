@@ -100,6 +100,14 @@ export default function PlanPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "生成失败");
+      // 解析成功后把 Page 2 缓存里的 isStale 清掉，避免返回时闪现提示
+      try {
+        const cacheKey = `p2_${params.id}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          sessionStorage.setItem(cacheKey, JSON.stringify({ ...JSON.parse(cached), isStale: false }));
+        }
+      } catch {}
       router.push(`/exam/${params.id}/review`);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;

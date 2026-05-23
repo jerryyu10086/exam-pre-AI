@@ -78,6 +78,10 @@ export function useFileUpload(examId: string, materialType: string) {
     setMessage("已存入知识库");
     setPendingFiles([]);
     await loadUploadedFiles();
+    // 知识库变更后让 Page 2 重新计算 isStale
+    if (materialType !== "textbook") {
+      try { sessionStorage.removeItem(`p2_${examId}`); } catch {}
+    }
   }
 
   function toggleSelect(name: string) {
@@ -107,6 +111,10 @@ export function useFileUpload(examId: string, materialType: string) {
     if (res.ok) {
       await loadUploadedFiles();
       setSelected(new Set());
+      // 知识库变更后让 Page 2 重新计算 isStale
+      if (materialType !== "textbook") {
+        try { sessionStorage.removeItem(`p2_${examId}`); } catch {}
+      }
     }
     setDeleting(false);
   }
