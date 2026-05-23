@@ -25,6 +25,8 @@ export default function GlobalQAPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const msgCache = useRef<Map<string, Message[]>>(new Map());
+  const prevConvIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const cacheKey = `gqa_${params.id}`;
@@ -47,8 +49,10 @@ export default function GlobalQAPage() {
   }, [params.id]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const behavior = activeConvId !== prevConvIdRef.current ? "instant" : "smooth";
+    prevConvIdRef.current = activeConvId;
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, [messages, activeConvId]);
 
   async function loadConversations() {
     const res = await fetch(`/api/global-chat?exam_id=${params.id}`);
@@ -69,9 +73,14 @@ export default function GlobalQAPage() {
   async function openConversation(id: string) {
     setActiveConvId(id);
     setLoadedChapters([]);
+    const cached = msgCache.current.get(id);
+    setMessages(cached ?? []);
     const res = await fetch(`/api/global-chat?conversation_id=${id}`);
     const data = await res.json();
-    if (Array.isArray(data)) setMessages(data);
+    if (Array.isArray(data)) {
+      msgCache.current.set(id, data);
+      setMessages(data);
+    }
   }
 
   function resetConversation() {
@@ -112,11 +121,16 @@ export default function GlobalQAPage() {
 
       setLoadedChapters(data.loaded_chapters ?? []);
 
-      setMessages((prev) => [
-        ...prev.filter((m) => m.id !== tempId),
-        { id: `u-${Date.now()}`, role: "user", content: text },
-        { id: `a-${Date.now()}`, role: "assistant", content: data.reply },
-      ]);
+      const convId: string = data.is_new ? data.conversation_id : (activeConvId ?? data.conversation_id);
+      setMessages((prev) => {
+        const next = [
+          ...prev.filter((m) => m.id !== tempId),
+          { id: `u-${Date.now()}`, role: "user", content: text },
+          { id: `a-${Date.now()}`, role: "assistant", content: data.reply },
+        ];
+        msgCache.current.set(convId, next);
+        return next;
+      });
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setInput(text);
@@ -156,6 +170,7 @@ export default function GlobalQAPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ conversation_ids: [id] }),
     });
+    msgCache.current.delete(id);
     setConversations((prev) => prev.filter((c) => c.id !== id));
     if (activeConvId === id) resetConversation();
     setConfirmDelete(null);
@@ -198,6 +213,7 @@ export default function GlobalQAPage() {
           {conversations.map((conv) => (
             <div
               key={conv.id}
+              onClick={() => renamingId !== conv.id && openConversation(conv.id)}
               className={`shrink-0 w-40 bg-card border rounded-lg p-3 transition-colors cursor-pointer ${
                 activeConvId === conv.id
                   ? "border-accent"
@@ -215,11 +231,9 @@ export default function GlobalQAPage() {
                   className="w-full bg-background border border-accent/50 rounded px-1.5 py-0.5 text-primary text-xs outline-none mb-1"
                 />
               ) : (
-                <div onClick={() => openConversation(conv.id)}>
-                  <p className="text-primary text-xs font-medium truncate mb-1">
-                    {conv.title}
-                  </p>
-                </div>
+                <p className="text-primary text-xs font-medium truncate mb-1">
+                  {conv.title}
+                </p>
               )}
               <div className="flex gap-2 mt-2">
                 <button
