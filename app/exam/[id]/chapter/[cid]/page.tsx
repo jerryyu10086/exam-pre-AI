@@ -1,7 +1,7 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from "react";
 import TierContent, { type KnowledgePoint } from "@/components/tier-content";
 import { useChat } from "@/hooks/useChat";
 import ReactMarkdown from "react-markdown";
@@ -26,6 +26,48 @@ const TIER_LEGEND = [
 
 type ViewMode = "sequential" | "tiered";
 
+// 独立组件持有 input state，打字不触发外层重渲染
+const ChatInput = forwardRef<
+  { setValue: (v: string) => void },
+  { onSend: (text: string) => Promise<boolean>; disabled: boolean }
+>(function ChatInput({ onSend, disabled }, ref) {
+  const [input, setInput] = useState("");
+
+  useImperativeHandle(ref, () => ({ setValue: (v) => setInput(v) }));
+
+  async function handleSend() {
+    const text = input.trim();
+    if (!text || disabled) return;
+    setInput("");
+    const ok = await onSend(text);
+    if (!ok) setInput(text);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  }
+
+  return (
+    <div className="border-t border-white/5 p-3 flex gap-2 shrink-0">
+      <textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="输入问题，Enter 发送，Shift+Enter 换行"
+        rows={2}
+        className="flex-1 bg-background border border-white/5 rounded-md px-3 py-2 text-primary text-sm placeholder:text-muted outline-none focus:border-accent/50 transition-colors resize-none"
+      />
+      <button
+        onClick={handleSend}
+        disabled={!input.trim() || disabled}
+        className="self-end bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md px-4 py-2 text-sm font-medium transition-colors"
+      >
+        发送
+      </button>
+    </div>
+  );
+});
+
 export default function ChapterPage() {
   const params = useParams<{ id: string; cid: string }>();
   const chapterOrder = parseInt(params.cid);
@@ -40,7 +82,7 @@ export default function ChapterPage() {
 
   // ── 对话抽屉 ──────────────────────────────────────────────
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [input, setInput] = useState("");
+  const chatInputRef = useRef<{ setValue: (v: string) => void }>(null);
   const {
     conversations, activeConvId, messages, sending,
     openConversation, resetConversation, sendMessage, deleteConversations, renameConversation,
@@ -143,30 +185,15 @@ export default function ChapterPage() {
     setConfirmDelete(null);
   }
 
-  async function handleSend() {
-    const text = input.trim();
-    if (!text || sending) return;
-    setInput("");
-    const ok = await sendMessage(text);
-    if (!ok) setInput(text);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  }
-
   const handleAsk = useCallback((concept: string) => {
     resetConversation();
     setDrawerOpen(true);
-    setInput(`关于「${concept}」，`);
+    chatInputRef.current?.setValue(`关于「${concept}」，`);
   }, [resetConversation]);
 
   // ── render ────────────────────────────────────────────────
   return (
-    <div className={`min-h-screen bg-background pl-6 pt-6 pb-6 transition-[padding-right] duration-300 ${drawerOpen ? "pr-[440px]" : "pr-6"}`}>
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-2xl mx-auto">
 
         {/* 顶部导航 */}
@@ -411,23 +438,7 @@ export default function ChapterPage() {
         </div>
 
         {/* 输入区 */}
-        <div className="border-t border-white/5 p-3 flex gap-2 shrink-0">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="输入问题，Enter 发送，Shift+Enter 换行"
-            rows={2}
-            className="flex-1 bg-background border border-white/5 rounded-md px-3 py-2 text-primary text-sm placeholder:text-muted outline-none focus:border-accent/50 transition-colors resize-none"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || sending}
-            className="self-end bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md px-4 py-2 text-sm font-medium transition-colors"
-          >
-            发送
-          </button>
-        </div>
+        <ChatInput ref={chatInputRef} onSend={sendMessage} disabled={sending} />
       </div>
 
       {/* 删除确认弹窗 */}
