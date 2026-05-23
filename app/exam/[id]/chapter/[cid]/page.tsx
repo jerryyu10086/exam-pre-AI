@@ -335,7 +335,7 @@ export default function ChapterPage() {
         {/* 对话卡片列表 */}
         <div className="chat-scrollbar flex gap-2 overflow-x-auto px-4 py-3 border-b border-white/5 shrink-0">
           <button
-            onClick={resetConversation}
+            onClick={() => { resetConversation(); chatInputRef.current?.setValue(""); }}
             className="shrink-0 w-24 bg-background border border-white/5 hover:border-white/15 rounded-lg p-2.5 flex items-center justify-center text-muted hover:text-primary transition-colors text-xs"
           >
             + 新建
