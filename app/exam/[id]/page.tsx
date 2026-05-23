@@ -20,6 +20,7 @@ export default function ExamDetailPage() {
   const [examName, setExamName] = useState("");
   const [counts, setCounts] = useState<FileCounts>({ slides: 0, exam: 0, textbook: 0 });
   const [hasPlan, setHasPlan] = useState(false);
+  const [isStale, setIsStale] = useState(false);
 
   useEffect(() => {
     const cacheKey = `p2_${params.id}`;
@@ -40,19 +41,37 @@ export default function ExamDetailPage() {
         types.map((t) =>
           fetch(`/api/upload?exam_id=${params.id}&material_type=${t}`)
             .then((r) => r.json())
-            .then((d) => ({ type: t, count: Array.isArray(d) ? d.length : 0 }))
+            .then((d) => ({ type: t, files: Array.isArray(d) ? (d as { name: string }[]) : [] }))
         )
       ),
       fetch(`/api/plan?exam_id=${params.id}`).then((r) => r.json()),
-    ]).then(([examList, countResults, planData]) => {
+      fetch(`/api/plan?exam_id=${params.id}&fields=cache_files`).then((r) => r.json()),
+    ]).then(([examList, fileResults, planData, cacheInfo]) => {
       const found = (examList as { id: string; name: string }[]).find((e) => e.id === params.id);
       const name = found?.name ?? "";
       if (name) setExamName(name);
       const c = { slides: 0, exam: 0, textbook: 0 };
-      (countResults as { type: MaterialType; count: number }[]).forEach(({ type, count }) => { c[type] = count; });
+      const currentFileNames = new Set<string>();
+      (fileResults as { type: MaterialType; files: { name: string }[] }[]).forEach(({ type, files }) => {
+        c[type] = files.length;
+        if (type !== "textbook") files.forEach((f) => currentFileNames.add(f.name));
+      });
       setCounts(c);
       const h = Array.isArray(planData) && planData.length > 0;
       setHasPlan(h);
+
+      // 检测 maps_cache 与当前知识库是否一致
+      const cacheFileNames: string[] = cacheInfo?.cache_file_names ?? [];
+      if (h && cacheFileNames.length > 0) {
+        const cacheSet = new Set(cacheFileNames);
+        const stale =
+          [...currentFileNames].some((f) => !cacheSet.has(f)) ||
+          [...cacheSet].some((f) => !currentFileNames.has(f));
+        setIsStale(stale);
+      } else {
+        setIsStale(false);
+      }
+
       try { sessionStorage.setItem(cacheKey, JSON.stringify({ name, counts: c, hasPlan: h })); } catch {}
     });
   }, [params.id]);
@@ -96,6 +115,12 @@ export default function ExamDetailPage() {
             </button>
           ))}
         </div>
+
+        {isStale && (
+          <p className="text-tier-supplement text-xs mb-3 flex items-center gap-1.5">
+            <span>⚠</span> 知识库已更新，当前复习计划可能与材料不符，建议重新解析
+          </p>
+        )}
 
         <div className="flex flex-col gap-3">
           <Link

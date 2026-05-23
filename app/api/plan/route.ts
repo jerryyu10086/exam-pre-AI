@@ -218,18 +218,27 @@ export async function DELETE(request: NextRequest) {
 }
 
 // GET /api/plan?exam_id=xxx
+// GET /api/plan?exam_id=xxx&fields=cache_files  → { cache_file_names: string[] }
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const examId = searchParams.get("exam_id");
   if (!examId) return NextResponse.json({ error: "缺少 exam_id" }, { status: 400 });
   const supabase = createServiceClient();
+  const fields = searchParams.get("fields");
   const { data, error } = await supabase
     .from("plans")
-    .select("data")
+    .select(fields === "cache_files" ? "maps_cache" : "data")
     .eq("exam_id", examId)
     .single();
   if (error && error.code !== "PGRST116") {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  if (fields === "cache_files") {
+    const cache = data?.maps_cache;
+    const fileNames = Array.isArray(cache)
+      ? (cache as { file_name: string }[]).map((e) => e.file_name)
+      : [];
+    return NextResponse.json({ cache_file_names: fileNames });
   }
   return NextResponse.json(data?.data ?? null);
 }
