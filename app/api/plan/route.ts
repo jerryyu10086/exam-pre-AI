@@ -46,17 +46,18 @@ export async function POST(request: NextRequest) {
       if (Array.isArray(raw) && raw.length > 0) {
         mapResults = raw as MapEntry[];
       } else {
-        mapResults = await runMap(supabase, exam_id);
+        const mapRun = await runMap(supabase, exam_id);
+        if (mapRun.dbError) return NextResponse.json({ error: `数据库查询失败：${mapRun.dbError}` }, { status: 500 });
+        if (mapRun.noChunks) return NextResponse.json({ error: "没有可分析的课件或真题，请先上传并存入知识库" }, { status: 400 });
+        if (mapRun.results.length === 0) return NextResponse.json({ error: `AI分析失败（${mapRun.failedFiles.join("、")}），请检查 API Key 或稍后重试` }, { status: 500 });
+        mapResults = mapRun.results;
       }
     } else {
-      mapResults = await runMap(supabase, exam_id);
-    }
-
-    if (mapResults.length === 0) {
-      return NextResponse.json(
-        { error: "没有可分析的课件或真题，请先上传并存入知识库" },
-        { status: 400 }
-      );
+      const mapRun = await runMap(supabase, exam_id);
+      if (mapRun.dbError) return NextResponse.json({ error: `数据库查询失败：${mapRun.dbError}` }, { status: 500 });
+      if (mapRun.noChunks) return NextResponse.json({ error: "没有可分析的课件或真题，请先上传并存入知识库" }, { status: 400 });
+      if (mapRun.results.length === 0) return NextResponse.json({ error: `AI分析失败（${mapRun.failedFiles.join("、")}），请检查 API Key 或稍后重试` }, { status: 500 });
+      mapResults = mapRun.results;
     }
 
     // 送 REDUCE 前剥掉 B部分（explanation），只发 A部分给 REDUCE
@@ -113,17 +114,30 @@ export async function POST(request: NextRequest) {
   }
 }
 
+type RunMapResult = {
+  results: MapEntry[];
+  noChunks: boolean;
+  dbError: string | null;
+  failedFiles: string[];
+};
+
 async function runMap(
   supabase: ReturnType<typeof createServiceClient>,
   exam_id: string
-): Promise<MapEntry[]> {
+): Promise<RunMapResult> {
   const { data: chunks, error } = await supabase
     .from("chunks")
     .select("file_name, material_type, content, chunk_index, has_answers")
     .eq("exam_id", exam_id)
     .order("chunk_index", { ascending: true });
 
-  if (error || !chunks || chunks.length === 0) return [];
+  if (error) {
+    console.error("runMap DB error:", error);
+    return { results: [], noChunks: false, dbError: error.message, failedFiles: [] };
+  }
+  if (!chunks || chunks.length === 0) {
+    return { results: [], noChunks: true, dbError: null, failedFiles: [] };
+  }
 
   const fileMap = new Map<
     string,
@@ -140,7 +154,9 @@ async function runMap(
     fileMap.get(row.file_name)!.rows.push(row);
   }
 
-  const mapResults: MapEntry[] = [];
+  const results: MapEntry[] = [];
+  const failedFiles: string[] = [];
+
   for (const [fileName, { material_type, has_answers, rows }] of fileMap.entries()) {
     if (material_type === "textbook") continue;
 
@@ -161,13 +177,14 @@ async function runMap(
     try {
       const raw = await callDeepSeek([{ role: "user", content: prompt }]);
       const mapJson = extractJSON(raw) as Record<string, unknown>;
-      mapResults.push({ file_name: fileName, material_type, data: mapJson });
+      results.push({ file_name: fileName, material_type, data: mapJson });
     } catch (err) {
       console.error(`MAP failed for ${fileName}:`, err);
+      failedFiles.push(fileName);
     }
   }
 
-  return mapResults;
+  return { results, noChunks: false, dbError: null, failedFiles };
 }
 
 // PATCH /api/plan — 直接写入 plan 数据（取消时恢复旧数据）
