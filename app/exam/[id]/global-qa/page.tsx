@@ -151,8 +151,8 @@ export default function GlobalQAPage() {
       setMessages((prev) => {
         const next = [
           ...prev.filter((m) => m.id !== tempId),
-          { id: `u-${Date.now()}`, role: "user", content: text },
-          { id: `a-${Date.now()}`, role: "assistant", content: data.reply },
+          { id: `u-${Date.now()}`, role: "user" as const, content: text },
+          { id: `a-${Date.now()}`, role: "assistant" as const, content: data.reply },
         ];
         msgCache.current.set(convId, next);
         return next;
