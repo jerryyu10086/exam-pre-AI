@@ -163,8 +163,8 @@ export default function ChapterPage() {
 
   const sortedPoints = useMemo(() =>
     [...(chapter?.knowledge_points ?? [])].sort((a, b) => {
-      const ai = parseInt(a.id.replace("kp_", ""), 10);
-      const bi = parseInt(b.id.replace("kp_", ""), 10);
+      const ai = parseInt((a.id ?? "kp_0").replace("kp_", ""), 10);
+      const bi = parseInt((b.id ?? "kp_0").replace("kp_", ""), 10);
       return ai - bi;
     }),
     [chapter?.knowledge_points]
