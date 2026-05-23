@@ -27,10 +27,11 @@ export default function ExamDetailPage() {
     try {
       const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
-        const { name, counts: c, hasPlan: h } = JSON.parse(cached);
+        const { name, counts: c, hasPlan: h, isStale: s } = JSON.parse(cached);
         if (name) setExamName(name);
         if (c) setCounts(c);
         if (typeof h === "boolean") setHasPlan(h);
+        if (typeof s === "boolean") setIsStale(s);
       }
     } catch {}
 
@@ -44,9 +45,9 @@ export default function ExamDetailPage() {
             .then((d) => ({ type: t, files: Array.isArray(d) ? (d as { name: string }[]) : [] }))
         )
       ),
-      fetch(`/api/plan?exam_id=${params.id}`).then((r) => r.json()),
-      fetch(`/api/plan?exam_id=${params.id}&fields=cache_files`).then((r) => r.json()),
-    ]).then(([examList, fileResults, planData, cacheInfo]) => {
+      // 合并为单次请求，同时返回 plan 数据和 cache 文件名
+      fetch(`/api/plan?exam_id=${params.id}&include_cache=true`).then((r) => r.json()),
+    ]).then(([examList, fileResults, planResult]) => {
       const found = (examList as { id: string; name: string }[]).find((e) => e.id === params.id);
       const name = found?.name ?? "";
       if (name) setExamName(name);
@@ -57,22 +58,22 @@ export default function ExamDetailPage() {
         if (type !== "textbook") files.forEach((f) => currentFileNames.add(f.name));
       });
       setCounts(c);
+      const planData = planResult?.plan ?? null;
       const h = Array.isArray(planData) && planData.length > 0;
       setHasPlan(h);
 
       // 检测 maps_cache 与当前知识库是否一致
-      const cacheFileNames: string[] = cacheInfo?.cache_file_names ?? [];
+      const cacheFileNames: string[] = planResult?.cache_file_names ?? [];
+      let stale = false;
       if (h && cacheFileNames.length > 0) {
         const cacheSet = new Set(cacheFileNames);
-        const stale =
+        stale =
           [...currentFileNames].some((f) => !cacheSet.has(f)) ||
           [...cacheSet].some((f) => !currentFileNames.has(f));
-        setIsStale(stale);
-      } else {
-        setIsStale(false);
       }
+      setIsStale(stale);
 
-      try { sessionStorage.setItem(cacheKey, JSON.stringify({ name, counts: c, hasPlan: h })); } catch {}
+      try { sessionStorage.setItem(cacheKey, JSON.stringify({ name, counts: c, hasPlan: h, isStale: stale })); } catch {}
     });
   }, [params.id]);
 
