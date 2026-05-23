@@ -455,7 +455,7 @@ export default function ChapterPage() {
           {sending && (
             <div className="flex justify-start">
               <div className="bg-background border border-white/5 rounded-lg px-3 py-2">
-                <p className="text-muted text-sm">思考中...</p>
+                <p className="text-muted text-sm">正在检索知识库并生成回答...</p>
               </div>
             </div>
           )}
