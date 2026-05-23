@@ -68,22 +68,12 @@ export default function UploadPage() {
       <div className="max-w-3xl mx-auto">
 
         {/* 顶部导航 */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Link href="/" className="text-muted hover:text-primary text-sm transition-colors shrink-0">首页</Link>
-            <span className="text-muted text-sm">/</span>
-            <Link href={`/exam/${params.id}`} className="text-muted hover:text-primary text-sm transition-colors shrink-0">返回</Link>
-            <span className="text-muted text-sm">/</span>
-            <h1 className="text-primary font-semibold text-base">{label}</h1>
-          </div>
-          {uploadedFiles.length > 0 && (
-            <button
-              onClick={toggleEditMode}
-              className="text-sm text-muted hover:text-primary transition-colors"
-            >
-              {editMode ? "完成" : "编辑"}
-            </button>
-          )}
+        <div className="flex items-center gap-2 mb-6">
+          <Link href="/" className="text-muted hover:text-primary text-sm transition-colors shrink-0">首页</Link>
+          <span className="text-muted text-sm">/</span>
+          <Link href={`/exam/${params.id}`} className="text-muted hover:text-primary text-sm transition-colors shrink-0">返回</Link>
+          <span className="text-muted text-sm">/</span>
+          <h1 className="text-primary font-semibold text-base">{label}</h1>
         </div>
         <p className="text-muted text-sm mb-6">
           上传材料越接近实际考试，分析结果越准确
@@ -92,7 +82,15 @@ export default function UploadPage() {
         {/* 已在知识库的文件 */}
         {uploadedFiles.length > 0 && (
           <div className="mb-6">
-            <p className="text-muted text-xs mb-2">已在知识库</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-muted text-xs">已在知识库</p>
+              <button
+                onClick={toggleEditMode}
+                className="text-sm text-primary/70 border border-white/10 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/20 transition-colors"
+              >
+                {editMode ? "完成" : "编辑"}
+              </button>
+            </div>
             <div className="flex flex-col gap-2">
               {uploadedFiles.map((file) => (
                 <div
