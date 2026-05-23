@@ -118,11 +118,13 @@ export default function ChapterPage() {
       .catch(() => setLoadError("加载失败，请刷新重试"));
   }, [params.id, chapterOrder]);
 
-  // 切换对话时直接跳底部，同一对话内新消息平滑滚动
+  // 切换对话（含首次加载）直接跳底部，同一对话内新消息平滑滚动
   const prevConvIdRef = useRef<string | null>(null);
+  const switchingRef = useRef(false);
   useEffect(() => {
-    const behavior = activeConvId !== prevConvIdRef.current ? "instant" : "smooth";
+    const behavior = (activeConvId !== prevConvIdRef.current || switchingRef.current) ? "instant" : "smooth";
     prevConvIdRef.current = activeConvId;
+    switchingRef.current = false;
     messagesEndRef.current?.scrollIntoView({ behavior });
   }, [messages, activeConvId]);
 
@@ -189,6 +191,7 @@ export default function ChapterPage() {
   }
 
   const handleAsk = useCallback((concept: string) => {
+    switchingRef.current = true;
     resetConversation();
     setDrawerOpen(true);
     chatInputRef.current?.setValue(`关于「${concept}」，`);
@@ -346,7 +349,7 @@ export default function ChapterPage() {
           {conversations.map((conv) => (
             <div
               key={conv.id}
-              onClick={() => renamingId !== conv.id && openConversation(conv.id)}
+              onClick={() => { if (renamingId !== conv.id) { switchingRef.current = true; openConversation(conv.id); } }}
               className={`shrink-0 w-36 bg-background border rounded-lg p-2.5 transition-colors cursor-pointer ${
                 activeConvId === conv.id
                   ? "border-accent"

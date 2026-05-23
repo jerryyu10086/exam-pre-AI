@@ -27,6 +27,7 @@ export default function GlobalQAPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const msgCache = useRef<Map<string, Message[]>>(new Map());
   const prevConvIdRef = useRef<string | null>(null);
+  const switchingRef = useRef(false);
 
   useEffect(() => {
     const cacheKey = `gqa_${params.id}`;
@@ -49,8 +50,9 @@ export default function GlobalQAPage() {
   }, [params.id]);
 
   useEffect(() => {
-    const behavior = activeConvId !== prevConvIdRef.current ? "instant" : "smooth";
+    const behavior = (activeConvId !== prevConvIdRef.current || switchingRef.current) ? "instant" : "smooth";
     prevConvIdRef.current = activeConvId;
+    switchingRef.current = false;
     messagesEndRef.current?.scrollIntoView({ behavior });
   }, [messages, activeConvId]);
 
@@ -71,6 +73,7 @@ export default function GlobalQAPage() {
   }
 
   async function openConversation(id: string) {
+    switchingRef.current = true;
     setActiveConvId(id);
     setLoadedChapters([]);
     const cached = msgCache.current.get(id);
