@@ -163,17 +163,17 @@ export default function PlanPage() {
 
         <div className="flex gap-3">
           <button
+            onClick={handleCancel}
+            className="flex-1 bg-card border border-white/5 hover:bg-card-hover text-primary rounded-md py-2 text-sm transition-colors"
+          >
+            取消
+          </button>
+          <button
             onClick={() => setShowModal(true)}
             disabled={!canStart || status === "loading"}
             className="flex-1 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md py-2 text-sm font-medium transition-colors"
           >
             {status === "loading" ? "分析中..." : isReanalysis ? "重新解析" : "开始解析"}
-          </button>
-          <button
-            onClick={handleCancel}
-            className="flex-1 bg-card border border-white/5 hover:bg-card-hover text-primary rounded-md py-2 text-sm transition-colors"
-          >
-            取消
           </button>
         </div>
       </div>
