@@ -218,7 +218,7 @@ export default function ChapterPage() {
 
         {/* 顶部导航 */}
         <div className="flex items-center gap-2 mb-6">
-          <Link href="/" className="text-muted hover:text-primary text-sm transition-colors shrink-0">首页</Link>
+          <Link href="/home" className="text-muted hover:text-primary text-sm transition-colors shrink-0">首页</Link>
           <span className="text-muted text-sm">/</span>
           <Link href={`/exam/${params.id}/review`} className="text-muted hover:text-primary text-sm transition-colors shrink-0">返回</Link>
           <span className="text-muted text-sm">/</span>

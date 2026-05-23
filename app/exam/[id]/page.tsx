@@ -88,9 +88,9 @@ export default function ExamDetailPage() {
       <div className="max-w-3xl mx-auto">
 
         <div className="flex items-center gap-2 mb-6">
-          <Link href="/" className="text-muted hover:text-primary text-sm transition-colors shrink-0">首页</Link>
+          <Link href="/home" className="text-muted hover:text-primary text-sm transition-colors shrink-0">首页</Link>
           <span className="text-muted text-sm">/</span>
-          <Link href="/" className="text-muted hover:text-primary text-sm transition-colors shrink-0">返回</Link>
+          <Link href="/home" className="text-muted hover:text-primary text-sm transition-colors shrink-0">返回</Link>
           <span className="text-muted text-sm">/</span>
           <h1 className="text-primary font-semibold text-base truncate">
             {examName || "加载中..."}

@@ -1,626 +1,198 @@
-"use client";
-import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 
-type Folder = { id: string; name: string };
-type Exam = { id: string; name: string; folder_id: string | null };
-
-const UNGROUPED = "__ungrouped__";
-
-export default function Home() {
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [exams, setExams] = useState<Exam[]>([]);
-  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
-
-  // ── 创建文件夹 ──────────────────────────────────────────
-  const [creatingFolder, setCreatingFolder] = useState(false);
-  const [folderName, setFolderName] = useState("");
-  const folderInputRef = useRef<HTMLInputElement>(null);
-
-  // ── 文件夹编辑模式 ──────────────────────────────────────
-  const [folderEditMode, setFolderEditMode] = useState(false);
-  const [selectedFolders, setSelectedFolders] = useState<Set<string>>(new Set());
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const renameInputRef = useRef<HTMLInputElement>(null);
-
-  // 删除文件夹弹窗
-  const [folderDeleteModal, setFolderDeleteModal] = useState<Folder[] | null>(null);
-  const [deleteExamsChoice, setDeleteExamsChoice] = useState(false);
-  const [deletingFolders, setDeletingFolders] = useState(false);
-
-  // ── 创建学科 ────────────────────────────────────────────
-  const [creatingExam, setCreatingExam] = useState(false);
-  const [examName, setExamName] = useState("");
-  const examInputRef = useRef<HTMLInputElement>(null);
-
-  // ── 学科编辑模式 ────────────────────────────────────────
-  const [editMode, setEditMode] = useState(false);
-  const [selectedExams, setSelectedExams] = useState<Set<string>>(new Set());
-  const [batchMoveFolder, setBatchMoveFolder] = useState("");
-  const [confirmDeleteExams, setConfirmDeleteExams] = useState<string[] | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  // 学科行内重命名
-  const [renamingExamId, setRenamingExamId] = useState<string | null>(null);
-  const [renameExamValue, setRenameExamValue] = useState("");
-  const renameExamInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    // 先读缓存立即渲染，消除空白闪烁
-    try {
-      const cached = sessionStorage.getItem("p1_cache");
-      if (cached) {
-        const { folders: f, exams: e } = JSON.parse(cached);
-        if (Array.isArray(f)) setFolders(f);
-        if (Array.isArray(e)) setExams(e);
-      }
-    } catch {}
-
-    // 后台拉最新数据
-    Promise.all([
-      fetch("/api/folder").then((r) => r.json()),
-      fetch("/api/exam").then((r) => r.json()),
-    ]).then(([f, e]) => {
-      const folders = Array.isArray(f) ? f : [];
-      const exams = Array.isArray(e) ? e : [];
-      setFolders(folders);
-      setExams(exams);
-      try {
-        sessionStorage.setItem("p1_cache", JSON.stringify({ folders, exams }));
-      } catch {}
-    });
-  }, []);
-
-  useEffect(() => { if (creatingFolder) folderInputRef.current?.focus(); }, [creatingFolder]);
-  useEffect(() => { if (creatingExam) examInputRef.current?.focus(); }, [creatingExam]);
-  useEffect(() => { if (renamingId) renameInputRef.current?.focus(); }, [renamingId]);
-  useEffect(() => { if (renamingExamId) renameExamInputRef.current?.focus(); }, [renamingExamId]);
-
-  // ── filteredExams ────────────────────────────────────────
-  const filteredExams =
-    activeFolderId === null ? exams
-    : activeFolderId === UNGROUPED ? exams.filter((e) => e.folder_id === null)
-    : exams.filter((e) => e.folder_id === activeFolderId);
-
-  const mainTitle =
-    activeFolderId === null ? "全部"
-    : activeFolderId === UNGROUPED ? "未分组"
-    : (folders.find((f) => f.id === activeFolderId)?.name ?? "学科");
-
-  // ── 文件夹操作 ───────────────────────────────────────────
-  async function handleCreateFolder() {
-    const name = folderName.trim();
-    if (!name) { setCreatingFolder(false); return; }
-    const res = await fetch("/api/folder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    const data = await res.json();
-    if (data.id) { setFolders((prev) => [...prev, data]); setActiveFolderId(data.id); }
-    setFolderName("");
-    setCreatingFolder(false);
-  }
-
-  function toggleFolderEditMode() {
-    setFolderEditMode((prev) => !prev);
-    setSelectedFolders(new Set());
-    setRenamingId(null);
-  }
-
-  function toggleSelectFolder(id: string) {
-    setSelectedFolders((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
-
-  function startRename(folder: Folder) {
-    setRenamingId(folder.id);
-    setRenameValue(folder.name);
-  }
-
-  async function commitRename() {
-    if (!renamingId || !renameValue.trim()) { setRenamingId(null); return; }
-    await fetch("/api/folder", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: renamingId, name: renameValue.trim() }),
-    });
-    setFolders((prev) => prev.map((f) => f.id === renamingId ? { ...f, name: renameValue.trim() } : f));
-    setRenamingId(null);
-  }
-
-  async function handleDeleteFolders() {
-    if (!folderDeleteModal) return;
-    setDeletingFolders(true);
-    const ids = folderDeleteModal.map((f) => f.id);
-    await fetch("/api/folder", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids, delete_exams: deleteExamsChoice }),
-    });
-    setFolders((prev) => prev.filter((f) => !ids.includes(f.id)));
-    if (deleteExamsChoice) {
-      setExams((prev) => prev.filter((e) => !ids.includes(e.folder_id ?? "")));
-    } else {
-      setExams((prev) => prev.map((e) => ids.includes(e.folder_id ?? "") ? { ...e, folder_id: null } : e));
-    }
-    if (ids.includes(activeFolderId ?? "")) setActiveFolderId(null);
-    setSelectedFolders(new Set());
-    setDeletingFolders(false);
-    setFolderDeleteModal(null);
-    setDeleteExamsChoice(false);
-  }
-
-  // ── 学科操作 ─────────────────────────────────────────────
-  async function handleCreateExam() {
-    const name = examName.trim();
-    if (!name) { setCreatingExam(false); return; }
-    const fid = activeFolderId === UNGROUPED ? null : activeFolderId;
-    const res = await fetch("/api/exam", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, folder_id: fid }),
-    });
-    const data = await res.json();
-    if (data.id) setExams((prev) => [{ id: data.id, name, folder_id: fid }, ...prev]);
-    setExamName("");
-    setCreatingExam(false);
-  }
-
-  function toggleEditMode() {
-    setEditMode((prev) => !prev);
-    setSelectedExams(new Set());
-    setRenamingExamId(null);
-  }
-
-  function toggleSelectExam(id: string) {
-    setSelectedExams((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
-
-  async function handleBatchMove(folderId: string | null) {
-    const ids = Array.from(selectedExams);
-    await Promise.all(ids.map((id) =>
-      fetch("/api/exam", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, folder_id: folderId }),
-      })
-    ));
-    setExams((prev) => prev.map((e) => selectedExams.has(e.id) ? { ...e, folder_id: folderId } : e));
-    setSelectedExams(new Set());
-  }
-
-  function handleBatchMoveChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const value = e.target.value;
-    if (!value) return;
-    setBatchMoveFolder("");
-    handleBatchMove(value === "__none__" ? null : value);
-  }
-
-  async function handleDeleteExams() {
-    if (!confirmDeleteExams) return;
-    setDeleting(true);
-    await fetch("/api/exam", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: confirmDeleteExams }),
-    });
-    const deletedSet = new Set(confirmDeleteExams);
-    setExams((prev) => prev.filter((e) => !deletedSet.has(e.id)));
-    setSelectedExams(new Set());
-    setDeleting(false);
-    setConfirmDeleteExams(null);
-  }
-
-  function startRenameExam(exam: Exam) {
-    setRenamingExamId(exam.id);
-    setRenameExamValue(exam.name);
-  }
-
-  async function commitRenameExam() {
-    if (!renamingExamId || !renameExamValue.trim()) { setRenamingExamId(null); return; }
-    const trimmed = renameExamValue.trim();
-    await fetch("/api/exam", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: renamingExamId, name: trimmed }),
-    });
-    setExams((prev) => prev.map((e) => e.id === renamingExamId ? { ...e, name: trimmed } : e));
-    setRenamingExamId(null);
-  }
-
-  // ── render ───────────────────────────────────────────────
+export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background overflow-x-hidden">
 
-      {/* 左侧文件夹栏 */}
-      <aside className="w-44 shrink-0 flex flex-col border-r border-white/10 p-3">
-        <p className="text-primary text-sm font-semibold px-2 mb-2 mt-1">文件夹列表</p>
-        <hr className="border-white/10 mb-2" />
+      {/* ── Nav ──────────────────────────────────────────────── */}
+      <nav className="flex items-center px-8 py-4 border-b border-white/5">
+        <span className="text-accent font-semibold text-base tracking-tight">
+          度月如日—备考AI
+        </span>
+      </nav>
 
-        <div className="flex-1 flex flex-col gap-0.5 overflow-y-auto">
-          {/* 全部 */}
-          <button
-            onClick={() => !folderEditMode && setActiveFolderId(null)}
-            className={`text-left px-2 py-1.5 rounded-md text-sm transition-colors ${
-              activeFolderId === null && !folderEditMode
-                ? "bg-accent/20 text-accent"
-                : "text-primary/70 hover:text-primary hover:bg-card"
-            }`}
-          >
-            全部
-          </button>
+      {/* ── Hero ─────────────────────────────────────────────── */}
+      <section className="relative flex flex-col items-center justify-center text-center min-h-screen px-6">
+        {/* 紫色光晕 */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[320px] bg-accent/10 rounded-full blur-3xl pointer-events-none" />
 
-          {/* 未分组 */}
-          <button
-            onClick={() => !folderEditMode && setActiveFolderId(UNGROUPED)}
-            className={`text-left px-2 py-1.5 rounded-md text-sm transition-colors ${
-              activeFolderId === UNGROUPED && !folderEditMode
-                ? "bg-accent/20 text-accent"
-                : "text-primary/70 hover:text-primary hover:bg-card"
-            }`}
-          >
-            未分组
-          </button>
+        <div className="relative mb-4 text-7xl font-bold text-accent tracking-tight">
+          度月如日
+        </div>
 
-          {/* 用户文件夹 */}
-          {folders.map((folder) =>
-            folderEditMode ? (
-              <div
-                key={folder.id}
-                className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 transition-colors ${
-                  selectedFolders.has(folder.id) ? "bg-accent/10" : "hover:bg-card"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedFolders.has(folder.id)}
-                  onChange={() => toggleSelectFolder(folder.id)}
-                  className="accent-accent w-3.5 h-3.5 shrink-0 cursor-pointer"
-                />
-                {renamingId === folder.id ? (
-                  <input
-                    ref={renameInputRef}
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitRename();
-                      if (e.key === "Escape") setRenamingId(null);
-                    }}
-                    onBlur={commitRename}
-                    className="flex-1 min-w-0 bg-background rounded px-1.5 py-0 text-primary text-sm outline-none ring-1 ring-accent/50"
-                  />
-                ) : (
-                  <span
-                    className="flex-1 min-w-0 text-primary text-sm truncate cursor-default"
-                    onDoubleClick={() => startRename(folder)}
-                    title="双击改名"
-                  >
-                    {folder.name}
-                  </span>
-                )}
-                <button
-                  onClick={() => startRename(folder)}
-                  className="shrink-0 text-muted hover:text-accent text-xs transition-colors"
-                  title="改名"
-                >
-                  ✎
-                </button>
+        {/* 主标题 tagline */}
+        <h1 className="relative text-2xl font-semibold text-primary mb-8">
+          没听课？照样拿高分！
+        </h1>
+
+        {/* 副标题 */}
+        <p className="relative text-muted text-base max-w-md mb-10 leading-relaxed">
+          课件一次全读，难点随时提问
+          <br />
+          AI 永远满血，框架自由调整
+        </p>
+
+        {/* 主 CTA */}
+        <Link
+          href="/home"
+          className="relative bg-accent hover:bg-accent-hover text-primary rounded-md px-8 py-3 text-base font-semibold transition-colors"
+        >
+          上传课件，开始备考 →
+        </Link>
+
+        <p className="relative mt-10 text-muted text-xs opacity-40">↓ 了解更多</p>
+      </section>
+
+      {/* ── Features ─────────────────────────────────────────── */}
+      <section className="px-8 py-20 max-w-5xl mx-auto">
+        <h2 className="text-center text-primary text-xl font-bold mb-2">
+          专为临时抱佛脚设计
+        </h2>
+        <p className="text-center text-muted text-base mb-10">
+          不是通用聊天 AI，是备考场景的完整解决方案
+        </p>
+
+        <div className="grid grid-cols-2 gap-4">
+
+          {/* 卡片 1：课件全读 */}
+          <div className="bg-card border border-white/5 rounded-lg p-5 flex flex-col gap-4">
+            <div className="text-2xl">📚</div>
+            <div>
+              <h3 className="text-primary font-semibold text-base mb-2">
+                课件全读，整体把握
+              </h3>
+              <p className="text-muted text-sm leading-relaxed">
+                传统 AI 上下文有限，课件一多就读不完。本产品对每份文件单独分析后统一整合，一次上传所有材料，全部读完再给出方案
+              </p>
+            </div>
+            <div className="mt-auto pt-3 border-t border-white/5 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted">传统AI对话</span>
+                <span className="text-tier-must">文件数量限制，无法整体分析</span>
               </div>
-            ) : (
-              <button
-                key={folder.id}
-                onClick={() => setActiveFolderId(folder.id)}
-                className={`text-left px-2 py-1.5 rounded-md text-sm transition-colors truncate ${
-                  activeFolderId === folder.id
-                    ? "bg-accent/20 text-accent"
-                    : "text-primary/70 hover:text-primary hover:bg-card"
-                }`}
-              >
-                {folder.name}
-              </button>
-            )
-          )}
-        </div>
-
-        {/* 底部操作区 */}
-        <div className="mt-2 flex flex-col gap-1 border-t border-white/10 pt-2">
-          {folderEditMode ? (
-            <div className="flex items-center gap-1">
-              {selectedFolders.size > 0 && (
-                <button
-                  onClick={() => setFolderDeleteModal(folders.filter((f) => selectedFolders.has(f.id)))}
-                  className="flex-1 text-center px-2 py-1.5 text-sm text-tier-must hover:bg-tier-must/10 rounded-md transition-colors"
-                >
-                  删除({selectedFolders.size})
-                </button>
-              )}
-              <button
-                onClick={toggleFolderEditMode}
-                className="flex-1 text-center px-2 py-1.5 text-primary/70 hover:text-primary text-sm hover:bg-card rounded-md transition-colors"
-              >
-                完成
-              </button>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted">本产品</span>
+                <span className="text-tier-expand">全部文件，整体分析</span>
+              </div>
             </div>
-          ) : (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCreatingFolder(true)}
-                className="flex-1 text-center px-2 py-1.5 text-primary/70 hover:text-primary text-sm hover:bg-card rounded-md transition-colors"
-              >
-                + 新建
-              </button>
-              {folders.length > 0 && (
-                <button
-                  onClick={toggleFolderEditMode}
-                  className="flex-1 text-center px-2 py-1.5 text-primary/70 hover:text-primary text-sm hover:bg-card rounded-md transition-colors"
-                >
-                  编辑
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </aside>
+          </div>
 
-      {/* 右侧主区域 */}
-      <main className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-primary font-semibold text-base">{mainTitle}</h1>
-          <div className="flex items-center gap-2">
-            {editMode && selectedExams.size > 0 && (
-              <>
-                <div className="relative">
-                  <select
-                    value={batchMoveFolder}
-                    onChange={handleBatchMoveChange}
-                    className="appearance-none text-sm text-muted bg-card border border-white/10 rounded-md pl-3 pr-7 py-1.5 outline-none hover:border-white/20 transition-colors cursor-pointer"
-                  >
-                    <option value="" disabled>移动至...</option>
-                    <option value="__none__">未分组</option>
-                    {folders.map((f) => (
-                      <option key={f.id} value={f.id}>{f.name}</option>
-                    ))}
-                  </select>
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted text-xs">▾</div>
+          {/* 卡片 2：章节独立 */}
+          <div className="bg-card border border-white/5 rounded-lg p-5 flex flex-col gap-4">
+            <div className="text-2xl">💬</div>
+            <div>
+              <h3 className="text-primary font-semibold text-base mb-2">
+                每章独立，AI 永远满血
+              </h3>
+              <p className="text-muted text-sm leading-relaxed">
+                每个章节对话窗口独立，上下文从不积累，AI 智商永远在线。结合精准检索，回答有据可查
+              </p>
+            </div>
+            <div className="mt-auto bg-background rounded-md p-3 flex flex-col gap-2">
+              <div className="self-end bg-accent/20 rounded-md px-3 py-1.5 text-accent text-xs max-w-[85%] text-left">
+                流动镶嵌模型是什么？
+              </div>
+              <p className="text-muted text-sm leading-relaxed">
+                细胞膜由磷脂双分子层构成…
+                <span className="text-accent/70 ml-1">来源：第3讲 第5页</span>
+              </p>
+            </div>
+          </div>
+
+          {/* 卡片 3：三档优先级 */}
+          <div className="bg-card border border-white/5 rounded-lg p-5 flex flex-col gap-4">
+            <div className="text-2xl">📊</div>
+            <div>
+              <h3 className="text-primary font-semibold text-base mb-2">
+                展示三档优先级，自由调整学习内容
+              </h3>
+              <p className="text-muted text-sm leading-relaxed">
+                自动生成红 / 黄 / 绿三档优先级框架。时间多就往下学，时间少就只看红档，决策权始终在你
+              </p>
+            </div>
+            <div className="mt-auto bg-background rounded-md p-3 flex flex-col gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-0.5 h-4 rounded-full bg-tier-must shrink-0" />
+                <span className="text-tier-must text-xs font-medium w-10 shrink-0">必学</span>
+                <span className="text-muted text-xs">硬核重点，不学不行</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-0.5 h-4 rounded-full bg-tier-supplement shrink-0" />
+                <span className="text-tier-supplement text-xs font-medium w-10 shrink-0">补充</span>
+                <span className="text-muted text-xs">锦上添花，加深理解</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-0.5 h-4 rounded-full bg-tier-expand shrink-0" />
+                <span className="text-tier-expand text-xs font-medium w-10 shrink-0">拓展</span>
+                <span className="text-muted text-xs">随缘看看，不用死磕</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 卡片 4：随时重新规划 */}
+          <div className="bg-card border border-white/5 rounded-lg p-5 flex flex-col gap-4">
+            <div className="text-2xl">🔄</div>
+            <div>
+              <h3 className="text-primary font-semibold text-base mb-2">
+                随时重新规划，只调整框架
+              </h3>
+              <p className="text-muted text-sm leading-relaxed">
+                考情变了、老师划了重点？一键重新生成复习框架，但章节内容无需重新生成——知识是什么就是什么，框架可以随时调整
+              </p>
+            </div>
+            <div className="mt-auto pt-3 border-t border-white/5 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted">章节分析</span>
+                <span className="text-tier-expand">永久缓存，不重复消耗</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted">复习框架</span>
+                <span className="text-accent">随时一键重新生成</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* ── How it works ─────────────────────────────────────── */}
+      <section className="py-24 border-t border-white/5">
+        <div className="max-w-4xl mx-auto px-8">
+          <h2 className="text-center text-primary text-2xl font-bold mb-16">
+            三步开始备考
+          </h2>
+          <div className="flex justify-center gap-36">
+            {[
+              {
+                step: "1",
+                title: "上传材料",
+                desc: "课件 / 真题 / 课本，多文件批量上传",
+              },
+              {
+                step: "2",
+                title: "获得复习方案",
+                desc: "三档优先级自动生成，无需手写提示词",
+              },
+              {
+                step: "3",
+                title: "随时深入提问",
+                desc: "章节问答 · 全局问答，精准检索有据可查",
+              },
+            ].map((item) => (
+              <div key={item.step} className="flex flex-col items-center text-center w-52">
+                <div className="w-16 h-16 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mb-5 shrink-0">
+                  <span className="text-accent font-bold text-2xl">{item.step}</span>
                 </div>
-                <button
-                  onClick={() => setConfirmDeleteExams(Array.from(selectedExams))}
-                  className="text-sm text-tier-must border border-tier-must/30 rounded-md px-3 py-1.5 hover:bg-tier-must/10 transition-colors"
-                >
-                  删除所选（{selectedExams.size}）
-                </button>
-              </>
-            )}
-            {filteredExams.length > 0 && (
-              <button
-                onClick={toggleEditMode}
-                className="text-sm text-primary/70 border border-white/10 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/20 transition-colors"
-              >
-                {editMode ? "完成" : "编辑"}
-              </button>
-            )}
-            {!editMode && (
-              <button
-                onClick={() => setCreatingExam(true)}
-                className="bg-accent hover:bg-accent-hover text-primary rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-              >
-                + 创建学科
-              </button>
-            )}
+                <h3 className="text-primary font-semibold text-lg mb-3 whitespace-nowrap">
+                  {item.title}
+                </h3>
+                <p className="text-muted text-base leading-relaxed whitespace-nowrap">{item.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
+      </section>
 
-        {filteredExams.length === 0 ? (
-          <p className="text-muted text-sm">暂无学科，点击右上角创建</p>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredExams.map((exam) =>
-              editMode ? (
-                <div
-                  key={exam.id}
-                  className={`bg-card border rounded-lg p-4 transition-colors ${
-                    selectedExams.has(exam.id) ? "border-accent" : "border-white/5"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedExams.has(exam.id)}
-                      onChange={() => toggleSelectExam(exam.id)}
-                      className="accent-accent w-4 h-4 shrink-0 cursor-pointer"
-                    />
-                    {renamingExamId === exam.id ? (
-                      <input
-                        ref={renameExamInputRef}
-                        value={renameExamValue}
-                        onChange={(e) => setRenameExamValue(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") commitRenameExam();
-                          if (e.key === "Escape") setRenamingExamId(null);
-                        }}
-                        onBlur={commitRenameExam}
-                        className="flex-1 min-w-0 bg-background rounded px-1.5 py-0 text-primary text-sm outline-none ring-1 ring-accent/50"
-                      />
-                    ) : (
-                      <p className="flex-1 min-w-0 text-primary text-sm font-medium truncate">{exam.name}</p>
-                    )}
-                    <button
-                      onClick={() => startRenameExam(exam)}
-                      className="shrink-0 text-muted hover:text-accent text-sm transition-colors"
-                      title="改名"
-                    >
-                      ✎
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <Link key={exam.id} href={`/exam/${exam.id}`}>
-                  <div className="bg-card border border-white/5 rounded-lg p-4 hover:bg-card-hover transition-colors cursor-pointer">
-                    <p className="text-primary text-sm font-medium truncate">{exam.name}</p>
-                  </div>
-                </Link>
-              )
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* ── 弹窗区 ── */}
-
-      {/* 创建文件夹 */}
-      {creatingFolder && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 w-full max-w-sm mx-4">
-            <p className="text-primary font-medium text-sm mb-4">新建文件夹</p>
-            <input
-              ref={folderInputRef}
-              value={folderName}
-              onChange={(e) => setFolderName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateFolder();
-                if (e.key === "Escape") { setCreatingFolder(false); setFolderName(""); }
-              }}
-              placeholder="文件夹名称（如：大一上）"
-              className="w-full bg-background border border-white/10 rounded-md px-3 py-2 text-primary text-sm placeholder:text-muted outline-none focus:border-accent/50 transition-colors mb-4"
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setCreatingFolder(false); setFolderName(""); }}
-                className="flex-1 bg-card border border-white/5 text-primary rounded-md py-2 text-sm hover:bg-card-hover transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleCreateFolder}
-                disabled={!folderName.trim()}
-                className="flex-1 bg-accent hover:bg-accent-hover disabled:opacity-50 text-primary rounded-md py-2 text-sm font-medium transition-colors"
-              >
-                创建
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 创建学科 */}
-      {creatingExam && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 w-full max-w-sm mx-4">
-            <p className="text-primary font-medium text-sm mb-4">新建学科</p>
-            <input
-              ref={examInputRef}
-              value={examName}
-              onChange={(e) => setExamName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateExam();
-                if (e.key === "Escape") { setCreatingExam(false); setExamName(""); }
-              }}
-              placeholder="学科名称（如：细胞生物学）"
-              className="w-full bg-background border border-white/10 rounded-md px-3 py-2 text-primary text-sm placeholder:text-muted outline-none focus:border-accent/50 transition-colors mb-4"
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setCreatingExam(false); setExamName(""); }}
-                className="flex-1 bg-card border border-white/5 text-primary rounded-md py-2 text-sm hover:bg-card-hover transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleCreateExam}
-                disabled={!examName.trim()}
-                className="flex-1 bg-accent hover:bg-accent-hover disabled:opacity-50 text-primary rounded-md py-2 text-sm font-medium transition-colors"
-              >
-                创建
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 删除学科确认 */}
-      {confirmDeleteExams && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 max-w-sm w-full mx-4">
-            <p className="text-primary text-sm font-medium mb-2">确认删除？</p>
-            <p className="text-muted text-xs mb-6">
-              将删除 {confirmDeleteExams.length} 个学科及其全部材料、复习计划和对话记录，此操作不可撤销。
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setConfirmDeleteExams(null)}
-                className="flex-1 bg-card border border-white/5 text-primary rounded-md py-2 text-sm hover:bg-card-hover transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleDeleteExams}
-                disabled={deleting}
-                className="flex-1 bg-tier-must text-primary rounded-md py-2 text-sm disabled:opacity-50 hover:opacity-90 transition-opacity"
-              >
-                {deleting ? "删除中..." : "确认删除"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 删除文件夹确认 */}
-      {folderDeleteModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 max-w-sm w-full mx-4">
-            <p className="text-primary text-sm font-medium mb-1">
-              删除 {folderDeleteModal.length} 个文件夹？
-            </p>
-            <p className="text-muted text-xs mb-4">
-              {folderDeleteModal.map((f) => f.name).join("、")}
-            </p>
-            <p className="text-primary text-xs mb-3">文件夹内的学科如何处理？</p>
-            <div className="flex flex-col gap-2 mb-5">
-              {[
-                { value: false, label: "移至「未分组」（保留学科）" },
-                { value: true, label: "一并删除学科" },
-              ].map((opt) => (
-                <label key={String(opt.value)} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="deleteExamsChoice"
-                    checked={deleteExamsChoice === opt.value}
-                    onChange={() => setDeleteExamsChoice(opt.value)}
-                    className="accent-accent w-4 h-4"
-                  />
-                  <span className={`text-sm ${opt.value ? "text-tier-must" : "text-primary"}`}>
-                    {opt.label}
-                  </span>
-                </label>
-              ))}
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setFolderDeleteModal(null); setDeleteExamsChoice(false); }}
-                className="flex-1 bg-card border border-white/5 text-primary rounded-md py-2 text-sm hover:bg-card-hover transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleDeleteFolders}
-                disabled={deletingFolders}
-                className="flex-1 bg-tier-must text-primary rounded-md py-2 text-sm disabled:opacity-50 hover:opacity-90 transition-opacity"
-              >
-                {deletingFolders ? "删除中..." : "确认删除"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

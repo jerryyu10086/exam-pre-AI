@@ -34,7 +34,7 @@ export default function LandingPage() {
 
         {/* 主 CTA */}
         <Link
-          href="/"
+          href="/home"
           className="relative bg-accent hover:bg-accent-hover text-primary rounded-md px-8 py-3 text-base font-semibold transition-colors"
         >
           上传课件，开始备考 →
