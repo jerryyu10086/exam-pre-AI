@@ -346,6 +346,7 @@ export default function ChapterPage() {
           {conversations.map((conv) => (
             <div
               key={conv.id}
+              onClick={() => renamingId !== conv.id && openConversation(conv.id)}
               className={`shrink-0 w-36 bg-background border rounded-lg p-2.5 transition-colors cursor-pointer ${
                 activeConvId === conv.id
                   ? "border-accent"
@@ -363,9 +364,7 @@ export default function ChapterPage() {
                   className="w-full bg-card border border-accent/50 rounded px-1.5 py-0.5 text-primary text-xs outline-none mb-1"
                 />
               ) : (
-                <div onClick={() => openConversation(conv.id)}>
-                  <p className="text-primary text-xs font-medium truncate mb-1">{conv.title}</p>
-                </div>
+                <p className="text-primary text-xs font-medium truncate mb-1">{conv.title}</p>
               )}
               <div className="flex gap-2 mt-1.5">
                 <button
