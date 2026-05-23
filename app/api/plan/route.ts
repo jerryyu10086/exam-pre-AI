@@ -42,10 +42,34 @@ export async function POST(request: NextRequest) {
         .eq("exam_id", exam_id)
         .single();
 
-      const raw = cached?.maps_cache;
-      if (Array.isArray(raw) && raw.length > 0) {
-        mapResults = raw as MapEntry[];
+      const existingCache = (Array.isArray(cached?.maps_cache) ? cached.maps_cache : []) as MapEntry[];
+      const cachedNames = new Set(existingCache.map((e) => e.file_name));
+
+      // 查找知识库中尚未 MAP 的文件（新增文件）
+      const { data: currentChunks } = await supabase
+        .from("chunks")
+        .select("file_name")
+        .eq("exam_id", exam_id)
+        .neq("material_type", "textbook");
+
+      const newFileNames = [...new Set(
+        (currentChunks ?? [])
+          .map((c: { file_name: string }) => c.file_name)
+          .filter((f) => !cachedNames.has(f))
+      )];
+
+      if (newFileNames.length > 0) {
+        // 增量 MAP：只对新文件跑
+        const newMapRun = await runMap(supabase, exam_id, newFileNames);
+        if (newMapRun.dbError) return NextResponse.json({ error: `数据库查询失败：${newMapRun.dbError}` }, { status: 500 });
+        if (newMapRun.failedFiles.length > 0) console.warn(`新文件 MAP 部分失败: ${newMapRun.failedFiles.join("、")}`);
+        mapResults = [...existingCache, ...newMapRun.results];
       } else {
+        mapResults = existingCache;
+      }
+
+      // 兜底：缓存为空时全量跑
+      if (mapResults.length === 0) {
         const mapRun = await runMap(supabase, exam_id);
         if (mapRun.dbError) return NextResponse.json({ error: `数据库查询失败：${mapRun.dbError}` }, { status: 500 });
         if (mapRun.noChunks) return NextResponse.json({ error: "没有可分析的课件或真题，请先上传并存入知识库" }, { status: 400 });
@@ -123,13 +147,20 @@ type RunMapResult = {
 
 async function runMap(
   supabase: ReturnType<typeof createServiceClient>,
-  exam_id: string
+  exam_id: string,
+  fileNamesFilter?: string[]
 ): Promise<RunMapResult> {
-  const { data: chunks, error } = await supabase
+  let query = supabase
     .from("chunks")
     .select("file_name, material_type, content, chunk_index, has_answers")
     .eq("exam_id", exam_id)
     .order("chunk_index", { ascending: true });
+
+  if (fileNamesFilter && fileNamesFilter.length > 0) {
+    query = query.in("file_name", fileNamesFilter);
+  }
+
+  const { data: chunks, error } = await query;
 
   if (error) {
     console.error("runMap DB error:", error);
