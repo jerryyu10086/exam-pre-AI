@@ -1,3 +1,4 @@
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -24,11 +25,11 @@ type TierContentProps = {
   point: KnowledgePoint;
   index: number;
   collapsed: boolean;
-  onToggle: () => void;
+  onToggle: (id: string) => void;
   onAsk?: (concept: string) => void;
 };
 
-export default function TierContent({ point, index, collapsed, onToggle, onAsk }: TierContentProps) {
+const TierContent = memo(function TierContent({ point, index, collapsed, onToggle, onAsk }: TierContentProps) {
   const color = TIER_COLOR[point.tier] ?? TIER_COLOR["必学"];
 
   return (
@@ -47,7 +48,7 @@ export default function TierContent({ point, index, collapsed, onToggle, onAsk }
             {point.concept}
           </span>
           <button
-            onClick={onToggle}
+            onClick={() => onToggle(point.id)}
             className="text-muted text-xs shrink-0 hover:text-primary transition-colors pt-0.5"
           >
             {collapsed ? "▼ 展开" : "▲ 收起"}
@@ -87,4 +88,6 @@ export default function TierContent({ point, index, collapsed, onToggle, onAsk }
       </div>
     </div>
   );
-}
+});
+
+export default TierContent;

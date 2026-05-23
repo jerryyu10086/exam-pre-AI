@@ -1,7 +1,7 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import TierContent, { type KnowledgePoint } from "@/components/tier-content";
 import { useChat } from "@/hooks/useChat";
 import ReactMarkdown from "react-markdown";
@@ -40,8 +40,9 @@ export default function ChapterPage() {
 
   // ── 对话抽屉 ──────────────────────────────────────────────
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [input, setInput] = useState("");
   const {
-    conversations, activeConvId, messages, input, setInput, sending,
+    conversations, activeConvId, messages, sending,
     openConversation, resetConversation, sendMessage, deleteConversations, renameConversation,
   } = useChat(params.id, chapterOrder);
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null);
@@ -81,13 +82,13 @@ export default function ChapterPage() {
   }, [messages]);
 
   // ── 折叠控制 ──────────────────────────────────────────────
-  function toggleCollapse(id: string) {
+  const toggleCollapse = useCallback((id: string) => {
     setCollapsedSet((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  }
+  }, []);
 
   function collapseAll() {
     if (!chapter) return;
@@ -98,19 +99,23 @@ export default function ChapterPage() {
     setCollapsedSet(new Set());
   }
 
-  // 顺序查看：按 kp_N 的 N 升序排列，还原 MAP 阶段（即 PDF）原始顺序
-  function getSortedByOriginalOrder() {
-    return [...(chapter?.knowledge_points ?? [])].sort((a, b) => {
+  const sortedPoints = useMemo(() =>
+    [...(chapter?.knowledge_points ?? [])].sort((a, b) => {
       const ai = parseInt(a.id.replace("kp_", ""), 10);
       const bi = parseInt(b.id.replace("kp_", ""), 10);
       return ai - bi;
-    });
-  }
+    }),
+    [chapter?.knowledge_points]
+  );
 
-  // ── 分层视图：按 tier 分组 ──────────────────────────────
-  function getPointsByTier(tier: string) {
-    return (chapter?.knowledge_points ?? []).filter((kp) => kp.tier === tier);
-  }
+  const tieredGroups = useMemo(() =>
+    (["必学", "补充", "拓展"] as const).map((tier) => ({
+      tier,
+      points: (chapter?.knowledge_points ?? []).filter((kp) => kp.tier === tier),
+      colorVar: TIER_LEGEND.find((t) => t.label === tier)!.colorVar,
+    })),
+    [chapter?.knowledge_points]
+  );
 
   // ── 对话改名 ─────────────────────────────────────────────
   function startRename(conv: { id: string; title: string }) {
@@ -138,22 +143,30 @@ export default function ChapterPage() {
     setConfirmDelete(null);
   }
 
+  async function handleSend() {
+    const text = input.trim();
+    if (!text || sending) return;
+    setInput("");
+    const ok = await sendMessage(text);
+    if (!ok) setInput(text);
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      handleSend();
     }
   }
 
-  function handleAsk(concept: string) {
+  const handleAsk = useCallback((concept: string) => {
     resetConversation();
     setDrawerOpen(true);
     setInput(`关于「${concept}」，`);
-  }
+  }, [resetConversation]);
 
   // ── render ────────────────────────────────────────────────
   return (
-    <div className={`min-h-screen bg-background pl-6 pt-6 pb-6 transition-all duration-300 ${drawerOpen ? "pr-[440px]" : "pr-6"}`}>
+    <div className={`min-h-screen bg-background pl-6 pt-6 pb-6 transition-[padding-right] duration-300 ${drawerOpen ? "pr-[440px]" : "pr-6"}`}>
       <div className="max-w-2xl mx-auto">
 
         {/* 顶部导航 */}
@@ -227,21 +240,19 @@ export default function ChapterPage() {
         {chapter && (
           <div className="flex flex-col gap-3 mb-8">
             {viewMode === "sequential" ? (
-              getSortedByOriginalOrder().map((kp, i) => (
+              sortedPoints.map((kp, i) => (
                 <TierContent
                   key={kp.id}
                   point={kp}
                   index={i + 1}
                   collapsed={collapsedSet.has(kp.id)}
-                  onToggle={() => toggleCollapse(kp.id)}
+                  onToggle={toggleCollapse}
                   onAsk={handleAsk}
                 />
               ))
             ) : (
-              (["必学", "补充", "拓展"] as const).map((tier) => {
-                const pts = getPointsByTier(tier);
-                if (pts.length === 0) return null;
-                const colorVar = TIER_LEGEND.find((t) => t.label === tier)!.colorVar;
+              tieredGroups.map(({ tier, points, colorVar }) => {
+                if (points.length === 0) return null;
                 return (
                   <div key={tier}>
                     <div className="flex items-center gap-2 mb-2">
@@ -252,13 +263,13 @@ export default function ChapterPage() {
                       <span className="text-primary text-sm font-medium">{tier}</span>
                     </div>
                     <div className="flex flex-col gap-3 pl-3">
-                      {pts.map((kp) => (
+                      {points.map((kp) => (
                         <TierContent
                           key={kp.id}
                           point={kp}
                           index={parseInt(kp.id.replace("kp_", ""), 10) + 1}
                           collapsed={collapsedSet.has(kp.id)}
-                          onToggle={() => toggleCollapse(kp.id)}
+                          onToggle={toggleCollapse}
                           onAsk={handleAsk}
                         />
                       ))}
@@ -275,8 +286,8 @@ export default function ChapterPage() {
       <button
         onClick={() => setDrawerOpen((v) => !v)}
         style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
-        className={`fixed top-1/2 -translate-y-1/2 bg-accent hover:bg-accent-hover text-primary text-xs font-medium px-2 py-4 rounded-l-lg z-40 shadow-lg transition-all duration-300 ${
-          drawerOpen ? "right-[440px]" : "right-0"
+        className={`fixed top-1/2 right-0 bg-accent hover:bg-accent-hover text-primary text-xs font-medium px-2 py-4 rounded-l-lg z-40 shadow-lg transition-transform duration-300 ${
+          drawerOpen ? "-translate-x-[440px] -translate-y-1/2" : "-translate-y-1/2"
         }`}
       >
         {drawerOpen ? "收起" : "💬 对话"}
@@ -284,7 +295,7 @@ export default function ChapterPage() {
 
       {/* ── 右侧对话抽屉 ── */}
       <div
-        className={`fixed top-0 right-0 h-full w-[440px] bg-card border-l border-white/5 z-30 flex flex-col transition-transform duration-300 ${
+        className={`fixed top-0 right-0 h-full w-[440px] bg-card border-l border-white/5 z-30 flex flex-col transition-transform duration-300 will-change-transform ${
           drawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -410,7 +421,7 @@ export default function ChapterPage() {
             className="flex-1 bg-background border border-white/5 rounded-md px-3 py-2 text-primary text-sm placeholder:text-muted outline-none focus:border-accent/50 transition-colors resize-none"
           />
           <button
-            onClick={sendMessage}
+            onClick={handleSend}
             disabled={!input.trim() || sending}
             className="self-end bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md px-4 py-2 text-sm font-medium transition-colors"
           >

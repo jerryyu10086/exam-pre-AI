@@ -19,7 +19,6 @@ export function useChat(examId: string, chapterOrder: number) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
 
   // 只在首次加载时自动打开最近的对话，后续刷新列表不再重置
@@ -62,12 +61,11 @@ export function useChat(examId: string, chapterOrder: number) {
     setMessages([]);
   }, []);
 
-  const sendMessage = useCallback(async () => {
-    const text = input.trim();
-    if (!text || sending) return;
+  // 返回 true=成功，false=失败（调用方负责还原 input）
+  const sendMessage = useCallback(async (text: string): Promise<boolean> => {
+    if (!text.trim() || sending) return false;
 
     setSending(true);
-    // 乐观更新：立即显示用户消息
     const optimisticMsg: Message = {
       id: `tmp-${Date.now()}`,
       role: "user",
@@ -75,7 +73,6 @@ export function useChat(examId: string, chapterOrder: number) {
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimisticMsg]);
-    setInput("");
 
     try {
       const res = await fetch("/api/chat", {
@@ -84,36 +81,34 @@ export function useChat(examId: string, chapterOrder: number) {
         body: JSON.stringify({
           exam_id: examId,
           chapter_order: chapterOrder,
-          conversation_id: activeConvId,  // null → API 自动新建对话
+          conversation_id: activeConvId,
           message: text,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "发送失败");
 
-      // 新建对话时锁定 activeConvId，后续消息继续发到同一对话
       if (data.is_new) {
         setActiveConvId(data.conversation_id);
       }
 
-      const replyMsg: Message = {
+      setMessages((prev) => [...prev, {
         id: `reply-${Date.now()}`,
         role: "assistant",
         content: data.reply,
         created_at: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, replyMsg]);
+      }]);
 
-      // 刷新对话卡片预览
       await loadConversations();
+      return true;
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
-      setInput(text);
       console.error("sendMessage error:", err);
+      return false;
     } finally {
       setSending(false);
     }
-  }, [input, sending, examId, chapterOrder, activeConvId, loadConversations]);
+  }, [sending, examId, chapterOrder, activeConvId, loadConversations]);
 
   const deleteConversations = useCallback(
     async (ids: string[]) => {
@@ -149,8 +144,6 @@ export function useChat(examId: string, chapterOrder: number) {
     conversations,
     activeConvId,
     messages,
-    input,
-    setInput,
     sending,
     openConversation,
     resetConversation,
