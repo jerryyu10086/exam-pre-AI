@@ -84,7 +84,7 @@ export default function ChapterPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const chatInputRef = useRef<{ setValue: (v: string) => void }>(null);
   const {
-    conversations, activeConvId, messages, sending,
+    conversations, activeConvId, messages, sending, loadingMessages,
     openConversation, resetConversation, sendMessage, deleteConversations, renameConversation,
   } = useChat(params.id, chapterOrder);
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null);
@@ -92,6 +92,7 @@ export default function ChapterPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // 加载章节数据
   useEffect(() => {
@@ -118,15 +119,29 @@ export default function ChapterPage() {
       .catch(() => setLoadError("加载失败，请刷新重试"));
   }, [params.id, chapterOrder]);
 
-  // 切换对话（含首次加载）直接跳底部，同一对话内新消息平滑滚动
-  const prevConvIdRef = useRef<string | null>(null);
-  const switchingRef = useRef(false);
+  // 1. 切换对话时 instant 跳底（有缓存立即生效）
   useEffect(() => {
-    const behavior = (activeConvId !== prevConvIdRef.current || switchingRef.current) ? "instant" : "smooth";
-    prevConvIdRef.current = activeConvId;
-    switchingRef.current = false;
-    messagesEndRef.current?.scrollIntoView({ behavior });
-  }, [messages, activeConvId]);
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [activeConvId]);
+
+  // 2. 无缓存时 fetch 完成后 instant 跳底
+  useEffect(() => {
+    if (!loadingMessages) {
+      const el = messagesContainerRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+  }, [loadingMessages]);
+
+  // 3. 同一对话内追加新消息时平滑滚动（仅当消息是追加而非替换）
+  const prevMessagesRef = useRef<typeof messages>([]);
+  useEffect(() => {
+    const prev = prevMessagesRef.current;
+    const curr = messages;
+    prevMessagesRef.current = curr;
+    const isAppend = curr.length > prev.length && prev.length > 0 && curr[0]?.id === prev[0]?.id;
+    if (isAppend) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   // ── 折叠控制 ──────────────────────────────────────────────
   const toggleCollapse = useCallback((id: string) => {
@@ -191,7 +206,6 @@ export default function ChapterPage() {
   }
 
   const handleAsk = useCallback((concept: string) => {
-    switchingRef.current = true;
     resetConversation();
     setDrawerOpen(true);
     chatInputRef.current?.setValue(`关于「${concept}」，`);
@@ -349,7 +363,7 @@ export default function ChapterPage() {
           {conversations.map((conv) => (
             <div
               key={conv.id}
-              onClick={() => { if (renamingId !== conv.id) { switchingRef.current = true; openConversation(conv.id); } }}
+              onClick={() => renamingId !== conv.id && openConversation(conv.id)}
               className={`shrink-0 w-36 bg-background border rounded-lg p-2.5 transition-colors cursor-pointer ${
                 activeConvId === conv.id
                   ? "border-accent"
@@ -388,7 +402,13 @@ export default function ChapterPage() {
         </div>
 
         {/* 消息区 */}
-        <div className="chat-scrollbar flex-1 overflow-y-auto p-4 space-y-3" style={{ scrollbarGutter: "stable" }}>
+        <div ref={messagesContainerRef} className="chat-scrollbar flex-1 overflow-y-auto p-4 space-y-3" style={{ scrollbarGutter: "stable" }}>
+          {loadingMessages ? (
+            <div className="flex items-center justify-center h-full py-16">
+              <div className="w-5 h-5 border-2 border-white/10 border-t-accent rounded-full animate-spin" />
+            </div>
+          ) : (
+          <>
           {messages.length === 0 && (
             <p className="text-muted text-sm text-center py-8">
               {conversations.length === 0
@@ -440,6 +460,8 @@ export default function ChapterPage() {
             </div>
           )}
           <div ref={messagesEndRef} />
+          </>
+          )}
         </div>
 
         {/* 输入区 */}

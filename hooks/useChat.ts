@@ -20,10 +20,9 @@ export function useChat(examId: string, chapterOrder: number) {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // 只在首次加载时自动打开最近的对话，后续刷新列表不再重置
   const initialLoadDone = useRef(false);
-  // 已加载过的对话消息缓存，切换时立即渲染
   const msgCache = useRef<Map<string, Message[]>>(new Map());
 
   const loadConversations = useCallback(async () => {
@@ -34,18 +33,19 @@ export function useChat(examId: string, chapterOrder: number) {
     const data: Conversation[] = await res.json();
     setConversations(data);
 
-    // 首次加载：自动打开最近一条对话（如有），之后不再自动切换
     if (!initialLoadDone.current) {
       initialLoadDone.current = true;
       if (data.length > 0) {
         const latest = data[0];
         setActiveConvId(latest.id);
+        setLoadingMessages(true);
         const msgRes = await fetch(`/api/chat?conversation_id=${latest.id}`);
         if (msgRes.ok) {
           const msgs: Message[] = await msgRes.json();
           msgCache.current.set(latest.id, msgs);
           setMessages(msgs);
         }
+        setLoadingMessages(false);
       }
     }
   }, [examId, chapterOrder]);
@@ -54,17 +54,24 @@ export function useChat(examId: string, chapterOrder: number) {
     loadConversations();
   }, [loadConversations]);
 
-  // 切换到某个已有对话：有缓存则立即显示，后台静默刷新
+  // 有缓存立即显示；无缓存显示 spinner 直到 fetch 完成
   const openConversation = useCallback(async (convId: string) => {
     setActiveConvId(convId);
     const cached = msgCache.current.get(convId);
-    setMessages(cached ?? []);
+    if (cached) {
+      setMessages(cached);
+      setLoadingMessages(false);
+    } else {
+      setMessages([]);
+      setLoadingMessages(true);
+    }
     const res = await fetch(`/api/chat?conversation_id=${convId}`);
     if (res.ok) {
       const msgs: Message[] = await res.json();
       msgCache.current.set(convId, msgs);
       setMessages(msgs);
     }
+    setLoadingMessages(false);
   }, []);
 
   // 重置为空白状态（下一次发送会自动新建对话）
@@ -162,6 +169,7 @@ export function useChat(examId: string, chapterOrder: number) {
     activeConvId,
     messages,
     sending,
+    loadingMessages,
     openConversation,
     resetConversation,
     sendMessage,

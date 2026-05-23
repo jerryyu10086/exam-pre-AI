@@ -24,10 +24,10 @@ export default function GlobalQAPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const msgCache = useRef<Map<string, Message[]>>(new Map());
-  const prevConvIdRef = useRef<string | null>(null);
-  const switchingRef = useRef(false);
 
   useEffect(() => {
     const cacheKey = `gqa_${params.id}`;
@@ -49,12 +49,29 @@ export default function GlobalQAPage() {
     loadConversations();
   }, [params.id]);
 
+  // 1. 切换对话时 instant 跳底
   useEffect(() => {
-    const behavior = (activeConvId !== prevConvIdRef.current || switchingRef.current) ? "instant" : "smooth";
-    prevConvIdRef.current = activeConvId;
-    switchingRef.current = false;
-    messagesEndRef.current?.scrollIntoView({ behavior });
-  }, [messages, activeConvId]);
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [activeConvId]);
+
+  // 2. 无缓存时 fetch 完成后 instant 跳底
+  useEffect(() => {
+    if (!loadingMessages) {
+      const el = messagesContainerRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+  }, [loadingMessages]);
+
+  // 3. 同一对话内追加新消息平滑滚动
+  const prevMessagesRef = useRef<Message[]>([]);
+  useEffect(() => {
+    const prev = prevMessagesRef.current;
+    const curr = messages;
+    prevMessagesRef.current = curr;
+    const isAppend = curr.length > prev.length && prev.length > 0 && curr[0]?.id === prev[0]?.id;
+    if (isAppend) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   async function loadConversations() {
     const res = await fetch(`/api/global-chat?exam_id=${params.id}`);
@@ -73,17 +90,23 @@ export default function GlobalQAPage() {
   }
 
   async function openConversation(id: string) {
-    switchingRef.current = true;
     setActiveConvId(id);
     setLoadedChapters([]);
     const cached = msgCache.current.get(id);
-    setMessages(cached ?? []);
+    if (cached) {
+      setMessages(cached);
+      setLoadingMessages(false);
+    } else {
+      setMessages([]);
+      setLoadingMessages(true);
+    }
     const res = await fetch(`/api/global-chat?conversation_id=${id}`);
     const data = await res.json();
     if (Array.isArray(data)) {
       msgCache.current.set(id, data);
       setMessages(data);
     }
+    setLoadingMessages(false);
   }
 
   function resetConversation() {
@@ -265,7 +288,13 @@ export default function GlobalQAPage() {
 
         {/* 消息区 + 输入框 */}
         <div className="bg-card border border-white/5 rounded-lg flex flex-col">
-          <div className="chat-scrollbar flex-1 p-4 space-y-3 max-h-96 overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
+          <div ref={messagesContainerRef} className="chat-scrollbar flex-1 p-4 space-y-3 max-h-96 overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
+            {loadingMessages ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="w-5 h-5 border-2 border-white/10 border-t-accent rounded-full animate-spin" />
+              </div>
+            ) : (
+            <>
             {messages.length === 0 && (
               <p className="text-muted text-sm text-center py-6">
                 {conversations.length === 0
@@ -317,6 +346,8 @@ export default function GlobalQAPage() {
               </div>
             )}
             <div ref={messagesEndRef} />
+            </>
+            )}
           </div>
 
           <div className="border-t border-white/5 p-3 flex gap-2">
