@@ -4,30 +4,47 @@ const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 
 type Message = { role: "system" | "user" | "assistant"; content: string };
 
-export async function callDeepSeek(messages: Message[]): Promise<string> {
+export async function callDeepSeek(messages: Message[], _retries = 2): Promise<string> {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) throw new Error("DEEPSEEK_API_KEY 未配置");
 
-  const response = await fetch(DEEPSEEK_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: DEEPSEEK_MODEL,
-      messages,
-      temperature: 0.3,
-    }),
-  });
+  const attempt = async (): Promise<string> => {
+    const response = await fetch(DEEPSEEK_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: DEEPSEEK_MODEL,
+        messages,
+        temperature: 0.3,
+      }),
+    });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`DeepSeek API 错误: ${response.status} ${text}`);
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`DeepSeek API 错误: ${response.status} ${text}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content as string;
+  };
+
+  let lastErr: unknown;
+  for (let i = 0; i <= _retries; i++) {
+    try {
+      return await attempt();
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const isRetryable = msg.includes("ECONNRESET") || msg.includes("fetch failed") || msg.includes("ETIMEDOUT");
+      if (!isRetryable || i === _retries) break;
+      console.warn(`DeepSeek 请求失败，第 ${i + 1} 次重试... (${msg})`);
+      await new Promise((r) => setTimeout(r, 3000 * (i + 1)));
+    }
   }
-
-  const data = await response.json();
-  return data.choices[0].message.content as string;
+  throw lastErr;
 }
 
 // 修复 JSON 字符串中非法的反斜杠转义（如 LaTeX \alpha \sum 等）

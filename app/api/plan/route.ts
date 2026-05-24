@@ -62,7 +62,12 @@ export async function POST(request: NextRequest) {
 
     const reducePrompt = buildReducePrompt(JSON.stringify(reduceInput, null, 2), user_context);
     const reduceRaw = await callDeepSeek([{ role: "user", content: reducePrompt }]);
-    const planData = extractJSON(reduceRaw) as Record<string, unknown>[];
+    const planDataRaw = extractJSON(reduceRaw);
+    if (!Array.isArray(planDataRaw) || planDataRaw.length === 0) {
+      console.error("REDUCE 结果不是数组，原始内容片段：", reduceRaw.slice(0, 500));
+      return NextResponse.json({ error: "分析结果解析失败，请重试" }, { status: 500 });
+    }
+    const planData = planDataRaw as Record<string, unknown>[];
 
     // REDUCE 完成后按 id 将 B部分（explanation）从 maps_cache 补回
     const explanationLookup = new Map<string, Map<string, string>>();
