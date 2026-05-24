@@ -8,7 +8,7 @@ import {
   buildReducePrompt,
 } from "@/lib/prompts";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type ChunkRow = {
   file_name: string;
@@ -188,32 +188,42 @@ async function runMap(
     fileMap.get(row.file_name)!.rows.push(row);
   }
 
+  const entries = [...fileMap.entries()].filter(
+    ([, { material_type }]) => material_type !== "textbook"
+  );
+
+  const settled = await Promise.allSettled(
+    entries.map(async ([fileName, { material_type, has_answers, rows }]) => {
+      const fullText = rows
+        .sort((a, b) => a.chunk_index - b.chunk_index)
+        .map((r) => r.content)
+        .join("\n");
+
+      let prompt: string;
+      if (material_type === "slides") {
+        prompt = buildMapSlidesPrompt(fullText);
+      } else {
+        prompt = has_answers !== false
+          ? buildMapExamWithAnswersPrompt(fullText)
+          : buildMapExamNoAnswersPrompt(fullText);
+      }
+
+      const raw = await callDeepSeek([{ role: "user", content: prompt }]);
+      const mapJson = extractJSON(raw) as Record<string, unknown>;
+      return { file_name: fileName, material_type, data: mapJson } as MapEntry;
+    })
+  );
+
   const results: MapEntry[] = [];
   const failedFiles: string[] = [];
 
-  for (const [fileName, { material_type, has_answers, rows }] of fileMap.entries()) {
-    if (material_type === "textbook") continue;
-
-    const fullText = rows
-      .sort((a, b) => a.chunk_index - b.chunk_index)
-      .map((r) => r.content)
-      .join("\n");
-
-    let prompt: string;
-    if (material_type === "slides") {
-      prompt = buildMapSlidesPrompt(fullText);
+  for (let i = 0; i < settled.length; i++) {
+    const result = settled[i];
+    const fileName = entries[i][0];
+    if (result.status === "fulfilled") {
+      results.push(result.value);
     } else {
-      prompt = has_answers !== false
-        ? buildMapExamWithAnswersPrompt(fullText)
-        : buildMapExamNoAnswersPrompt(fullText);
-    }
-
-    try {
-      const raw = await callDeepSeek([{ role: "user", content: prompt }]);
-      const mapJson = extractJSON(raw) as Record<string, unknown>;
-      results.push({ file_name: fileName, material_type, data: mapJson });
-    } catch (err) {
-      console.error(`MAP failed for ${fileName}:`, err);
+      console.error(`MAP failed for ${fileName}:`, result.reason);
       failedFiles.push(fileName);
     }
   }

@@ -84,7 +84,7 @@ export default function ExamDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-3xl mx-auto">
 
         <div className="flex items-center gap-2 mb-6">

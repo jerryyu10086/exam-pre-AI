@@ -239,10 +239,106 @@ export default function Home() {
 
   // ── render ───────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+
+      {/* Mobile: top tab strip */}
+      <nav className="md:hidden border-b border-white/10">
+        <div className="flex overflow-x-auto gap-1.5 px-3 py-2">
+          {!folderEditMode ? (
+            <>
+              <button
+                onClick={() => setActiveFolderId(null)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
+                  activeFolderId === null
+                    ? "bg-accent/20 text-accent"
+                    : "text-primary/70 hover:text-primary hover:bg-card"
+                }`}
+              >
+                全部
+              </button>
+              <button
+                onClick={() => setActiveFolderId(UNGROUPED)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
+                  activeFolderId === UNGROUPED
+                    ? "bg-accent/20 text-accent"
+                    : "text-primary/70 hover:text-primary hover:bg-card"
+                }`}
+              >
+                未分组
+              </button>
+              {folders.map((folder) => (
+                <button
+                  key={folder.id}
+                  onClick={() => setActiveFolderId(folder.id)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
+                    activeFolderId === folder.id
+                      ? "bg-accent/20 text-accent"
+                      : "text-primary/70 hover:text-primary hover:bg-card"
+                  }`}
+                >
+                  {folder.name}
+                </button>
+              ))}
+            </>
+          ) : (
+            <>
+              {folders.map((folder) => (
+                <button
+                  key={folder.id}
+                  onClick={() => toggleSelectFolder(folder.id)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors border ${
+                    selectedFolders.has(folder.id)
+                      ? "bg-accent/20 text-accent border-accent/40"
+                      : "text-primary/70 border-white/10 hover:bg-card hover:text-primary"
+                  }`}
+                >
+                  {folder.name}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2 px-3 pb-2">
+          {folderEditMode ? (
+            <>
+              {selectedFolders.size > 0 && (
+                <button
+                  onClick={() => setFolderDeleteModal(folders.filter((f) => selectedFolders.has(f.id)))}
+                  className="text-sm text-tier-must border border-tier-must/30 rounded-md px-3 py-1.5 hover:bg-tier-must/10 transition-colors"
+                >
+                  删除({selectedFolders.size})
+                </button>
+              )}
+              <button
+                onClick={toggleFolderEditMode}
+                className="ml-auto text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1.5 hover:bg-card transition-colors"
+              >
+                完成
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setCreatingFolder(true)}
+                className="text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1.5 hover:bg-card transition-colors"
+              >
+                + 新建文件夹
+              </button>
+              {folders.length > 0 && (
+                <button
+                  onClick={toggleFolderEditMode}
+                  className="text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1.5 hover:bg-card transition-colors"
+                >
+                  编辑
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </nav>
 
       {/* 左侧文件夹栏 */}
-      <aside className="w-44 shrink-0 flex flex-col border-r border-white/10 p-3">
+      <aside className="w-44 shrink-0 hidden md:flex flex-col border-r border-white/10 p-3">
         <p className="text-primary text-sm font-semibold px-2 mb-2 mt-1">文件夹列表</p>
         <hr className="border-white/10 mb-2" />
 
@@ -372,8 +468,8 @@ export default function Home() {
       </aside>
 
       {/* 右侧主区域 */}
-      <main className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-6">
+      <main className="flex-1 p-4 md:p-6">
+        <div className="flex items-center justify-between flex-wrap gap-x-4 gap-y-2 mb-4 md:mb-6">
           <h1 className="text-primary font-semibold text-base">{mainTitle}</h1>
           <div className="flex items-center gap-2">
             {editMode && selectedExams.size > 0 && (
@@ -422,7 +518,7 @@ export default function Home() {
         {filteredExams.length === 0 ? (
           <p className="text-muted text-sm">暂无学科，点击右上角创建</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
             {filteredExams.map((exam) =>
               editMode ? (
                 <div

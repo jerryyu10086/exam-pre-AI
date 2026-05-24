@@ -5,7 +5,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background overflow-x-hidden">
 
       {/* ── Nav ──────────────────────────────────────────────── */}
-      <nav className="flex items-center px-8 py-4 border-b border-white/5">
+      <nav className="flex items-center px-4 sm:px-8 py-4 border-b border-white/5">
         <span className="text-accent font-semibold text-base tracking-tight">
           度月如日—备考AI
         </span>
@@ -16,7 +16,7 @@ export default function LandingPage() {
         {/* 紫色光晕 */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[320px] bg-accent/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative mb-4 text-7xl font-bold text-accent tracking-tight">
+        <div className="relative mb-4 text-5xl sm:text-7xl font-bold text-accent tracking-tight">
           度月如日
         </div>
 
@@ -44,15 +44,15 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ─────────────────────────────────────────── */}
-      <section className="px-8 py-20 max-w-5xl mx-auto">
+      <section className="px-4 sm:px-8 py-12 sm:py-20 max-w-5xl mx-auto">
         <h2 className="text-center text-primary text-xl font-bold mb-2">
           专为临时抱佛脚设计
         </h2>
-        <p className="text-center text-muted text-base mb-10">
+        <p className="text-center text-muted text-sm sm:text-base mb-8 sm:mb-10">
           不是通用聊天 AI，是备考场景的完整解决方案
         </p>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
           {/* 卡片 1：课件全读 */}
           <div className="bg-card border border-white/5 rounded-lg p-5 flex flex-col gap-4">
@@ -156,12 +156,12 @@ export default function LandingPage() {
       </section>
 
       {/* ── How it works ─────────────────────────────────────── */}
-      <section className="py-24 border-t border-white/5">
-        <div className="max-w-4xl mx-auto px-8">
-          <h2 className="text-center text-primary text-2xl font-bold mb-16">
+      <section className="py-12 sm:py-24 border-t border-white/5">
+        <div className="max-w-4xl mx-auto px-4 sm:px-8">
+          <h2 className="text-center text-primary text-xl sm:text-2xl font-bold mb-10 sm:mb-16">
             三步开始备考
           </h2>
-          <div className="flex justify-center gap-36">
+          <div className="flex flex-col sm:flex-row sm:justify-center items-center gap-10 sm:gap-24">
             {[
               {
                 step: "1",
@@ -183,10 +183,10 @@ export default function LandingPage() {
                 <div className="w-16 h-16 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mb-5 shrink-0">
                   <span className="text-accent font-bold text-2xl">{item.step}</span>
                 </div>
-                <h3 className="text-primary font-semibold text-lg mb-3 whitespace-nowrap">
+                <h3 className="text-primary font-semibold text-base sm:text-lg mb-2 sm:mb-3">
                   {item.title}
                 </h3>
-                <p className="text-muted text-base leading-relaxed whitespace-nowrap">{item.desc}</p>
+                <p className="text-muted text-sm sm:text-base leading-relaxed text-center">{item.desc}</p>
               </div>
             ))}
           </div>

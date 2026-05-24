@@ -52,14 +52,14 @@ export default function PlanPage() {
   const [summary, setSummary] = useState<FileSummary | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [isReanalysis, setIsReanalysis] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
 
   const previousPlanRef = useRef<unknown>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [ctx, setCtx] = useState<ContextFields>({ chapters: "", weights: "", other: "" });
-
-  const isReanalysis = previousPlanRef.current !== null;
 
   useEffect(() => {
     fetchFileSummary(params.id).then(setSummary);
@@ -69,9 +69,19 @@ export default function PlanPage() {
       .then((d) => {
         if (d && typeof d === "object") {
           previousPlanRef.current = d;
+          setIsReanalysis(true);
         }
       });
   }, [params.id]);
+
+  useEffect(() => {
+    if (status !== "loading") {
+      setElapsed(0);
+      return;
+    }
+    const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [status]);
 
   const canStart = summary ? summary.slides > 0 || summary.exam > 0 : false;
 
@@ -98,8 +108,13 @@ export default function PlanPage() {
         }),
         signal: controller.signal,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "生成失败");
+      let data: Record<string, unknown> | null = null;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("服务器响应超时，请重试");
+      }
+      if (!res.ok) throw new Error((data?.error as string) ?? "生成失败");
       // 解析成功后把 Page 2 缓存里的 isStale 清掉，避免返回时闪现提示
       try {
         const cacheKey = `p2_${params.id}`;
@@ -154,7 +169,9 @@ export default function PlanPage() {
               {summary.slides === 0 && summary.exam === 0 && summary.textbook === 0 && (
                 <p className="text-muted text-sm">暂无已上传材料</p>
               )}
-              <p className="text-muted text-xs mt-3">预计耗时：约2分钟</p>
+              <p className="text-muted text-xs mt-3">
+                预计耗时：{isReanalysis ? "约30秒" : "约1分钟"}
+              </p>
             </>
           )}
         </div>
@@ -163,7 +180,9 @@ export default function PlanPage() {
           <p className="text-muted text-xs mb-4">重新解析将跳过已缓存的文件分析，仅重新生成复习计划</p>
         )}
         {status === "loading" && (
-          <p className="text-muted text-sm mb-4">AI 正在分析材料，请耐心等待...</p>
+          <p className="text-muted text-sm mb-4">
+            AI 正在分析材料，请耐心等待...（已等待 {elapsed} 秒）
+          </p>
         )}
         {errorMsg && (
           <p className="text-tier-must text-sm mb-4">{errorMsg}</p>

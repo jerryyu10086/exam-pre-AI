@@ -213,7 +213,7 @@ export default function ChapterPage() {
 
   // ── render ────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-3xl mx-auto">
 
         {/* 顶部导航 */}
@@ -334,7 +334,7 @@ export default function ChapterPage() {
         onClick={() => setDrawerOpen((v) => !v)}
         style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
         className={`fixed top-1/2 right-0 bg-accent hover:bg-accent-hover text-primary text-xs font-medium px-2 py-4 rounded-l-lg z-40 shadow-lg transition-transform duration-300 ${
-          drawerOpen ? "-translate-x-[440px] -translate-y-1/2" : "-translate-y-1/2"
+          drawerOpen ? "md:-translate-x-[440px] -translate-y-1/2 max-md:opacity-0 max-md:pointer-events-none" : "-translate-y-1/2"
         }`}
       >
         {drawerOpen ? "收起" : "💬 对话"}
@@ -342,14 +342,20 @@ export default function ChapterPage() {
 
       {/* ── 右侧对话抽屉 ── */}
       <div
-        className={`fixed top-0 right-0 h-full w-[440px] bg-card border-l border-white/5 z-30 flex flex-col transition-transform duration-300 will-change-transform ${
+        className={`fixed top-0 right-0 h-full w-full md:w-[440px] bg-card border-l border-white/5 z-30 flex flex-col transition-transform duration-300 will-change-transform ${
           drawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {/* 抽屉顶栏 */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 shrink-0">
+          <button
+            onClick={() => setDrawerOpen(false)}
+            className="md:hidden shrink-0 text-muted hover:text-primary text-base leading-none transition-colors"
+          >
+            ←
+          </button>
           <h2 className="text-sm font-medium text-primary">💬 章节对话</h2>
-          <p className="text-muted text-xs">基于本章课件随时提问，无需重新上传</p>
+          <p className="hidden sm:block text-muted text-xs ml-auto">基于本章课件随时提问，无需重新上传</p>
         </div>
 
         {/* 对话卡片列表 */}
