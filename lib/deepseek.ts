@@ -30,16 +30,21 @@ export async function callDeepSeek(messages: Message[]): Promise<string> {
   return data.choices[0].message.content as string;
 }
 
+// 修复 JSON 字符串中非法的反斜杠转义（如 LaTeX \alpha \sum 等）
+function fixEscapes(s: string): string {
+  return s.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+}
+
 // 从 DeepSeek 输出中提取 JSON：优先取最后一个代码块（兼容 CoT 推理前缀），兜底直接解析
 export function extractJSON(text: string): unknown {
   const matches = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)];
   if (matches.length > 0) {
-    return JSON.parse(matches[matches.length - 1][1].trim());
+    return JSON.parse(fixEscapes(matches[matches.length - 1][1].trim()));
   }
   // 兜底：从最后一个 [ 开始找 JSON 数组
   const lastBracket = text.lastIndexOf("[");
   if (lastBracket !== -1) {
-    return JSON.parse(text.slice(lastBracket).trim());
+    return JSON.parse(fixEscapes(text.slice(lastBracket).trim()));
   }
-  return JSON.parse(text.trim());
+  return JSON.parse(fixEscapes(text.trim()));
 }
