@@ -1,8 +1,8 @@
 export function buildMapSlidesPrompt(fileText: string): string {
   return `你是一个专业的备考助手。你的任务是将课件内容转化为一份详细的学习文档，让学生不需要看原始课件就能完整理解这门课。
 
-【语言要求】：所有输出字段（concept、knowledge、explanation）必须使用中文，无论课件原文是中文还是英文。
-- 专业术语写法：中文名称后紧跟英文原文括号，如"常应变三角形（CST, Constant Strain Triangle）"、"有限元分析（FEA）"
+【语言要求】：所有输出字段必须使用中文，无论课件原文是中文还是英文。
+- 专业术语写法：首次出现时中文名称后紧跟英文原文括号，如"常应变三角形（CST, Constant Strain Triangle）"；同一知识点内后续再次提及时只写中文，不重复英文括号
 - 数学符号、变量名保持英文，如 $E$、$\sigma$、$\varepsilon$
 - 禁止直接复制粘贴英文课件原文作为知识点内容，必须翻译为中文
 
@@ -17,10 +17,10 @@ export function buildMapSlidesPrompt(fileText: string): string {
 
 字段说明：
 - id：kp_0、kp_1、kp_2 依次递增，用于跨步骤稳定引用，不得重复
-- concept：知识点的规范名称，必须是中文。若课件原文为英文，在括号内附上英文原名，格式：中文名（英文原名），如"最小势能原理（Minimum Potential Energy Principle）"、"常应变三角形（CST, Constant Strain Triangle）"、"弹性矩阵（Elasticity Matrix）"。纯中文课件仅写中文，无需附英文。
-- knowledge：【A部分】完整还原该知识点的核心内容，包含定义、原理、关键结论、重要公式、需精确记忆的数值等（必须用中文）
+- concept：知识点的规范名称，必须是中文。若课件原文为英文，在括号内附上英文原名，格式：中文名（英文原名），如"最小势能原理（Minimum Potential Energy Principle）"、"常应变三角形（CST, Constant Strain Triangle）"。纯中文课件仅写中文，无需附英文。
+- knowledge：【A部分】完整还原该知识点的核心内容，包含定义、原理、关键结论、重要公式、需精确记忆的数值等。英文课件的专业术语首次出现时附英文括号（后续同一术语只写中文），数学符号保持英文。
 - source：【A部分】在课件中的位置，如"第3章 细胞膜结构，第5页"，要求具体到页，不能只写章节
-- explanation：【B部分】帮助学生真正理解该知识点，不是重复 knowledge 的内容（必须用中文）
+- explanation：【B部分】帮助学生真正理解该知识点，不是重复 knowledge 的内容。英文课件的专业术语首次出现时附英文括号（后续同一术语只写中文），数学符号保持英文。
 
 {
   "knowledge_points": [
