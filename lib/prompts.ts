@@ -141,7 +141,7 @@ ${userContextSection}
   }
 ]
 
-注意：knowledge_points 只输出 id 和 tier，不要复制 knowledge/concept/source 等字段内容（系统将自动从原始数据补全）。
+注意：knowledge_points 只输出 id 和 tier 两个字段，禁止输出 knowledge/concept/source/explanation 等其他字段。
 importance 取值只能是：高频 / 中频 / 低频
 
 ━━ 材料摘要 ━━

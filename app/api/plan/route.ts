@@ -50,12 +50,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "没有可分析的课件或真题，请先上传并存入知识库" }, { status: 400 });
     }
 
-    // 送 REDUCE 前剥掉 B部分（explanation），只发 A部分给 REDUCE
+    // REDUCE 输入只保留 id/concept/source，剥掉 knowledge（正文太长模型会照抄超 token）和 explanation（B部分）
+    // REDUCE 只需知识点名称+来源来判断档位，正文内容在合并步骤从 mapResults 补回
     const reduceInput = mapResults.map((entry) => {
       if (entry.material_type !== "slides") return entry;
       const data = entry.data as Record<string, unknown>;
       const kps = ((data.knowledge_points ?? []) as Record<string, unknown>[]).map(
-        ({ explanation: _e, ...rest }) => rest
+        ({ explanation: _e, knowledge: _k, ...rest }) => rest
       );
       return { ...entry, data: { ...data, knowledge_points: kps } };
     });
