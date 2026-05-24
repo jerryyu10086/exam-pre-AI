@@ -4,7 +4,7 @@ const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 
 type Message = { role: "system" | "user" | "assistant"; content: string };
 
-export async function callDeepSeek(messages: Message[], _retries = 2): Promise<string> {
+export async function callDeepSeek(messages: Message[], options?: { max_tokens?: number }, _retries = 2): Promise<string> {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) throw new Error("DEEPSEEK_API_KEY 未配置");
 
@@ -19,6 +19,7 @@ export async function callDeepSeek(messages: Message[], _retries = 2): Promise<s
         model: DEEPSEEK_MODEL,
         messages,
         temperature: 0.3,
+        ...(options?.max_tokens ? { max_tokens: options.max_tokens } : {}),
       }),
     });
 
