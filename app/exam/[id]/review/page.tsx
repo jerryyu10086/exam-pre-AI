@@ -37,7 +37,12 @@ export default function ReviewPage() {
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          const sorted = [...data].sort((a: FileEntry, b: FileEntry) => a.order - b.order);
+          // 优先按 display_name 里的章节号（第N章）排序，无章节号则按 order 兜底
+          const chapterNum = (f: FileEntry) => {
+            const m = f.display_name.match(/第\s*(\d+)\s*章/);
+            return m ? parseInt(m[1], 10) : f.order + 10000;
+          };
+          const sorted = [...data].sort((a: FileEntry, b: FileEntry) => chapterNum(a) - chapterNum(b));
           setFiles(sorted);
           try { sessionStorage.setItem(cacheKey, JSON.stringify(sorted)); } catch {}
         } else {
