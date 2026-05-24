@@ -137,7 +137,7 @@ export default function PlanPage() {
         if (controller.signal.aborted) return;
         const batch = filesToMap.slice(i, i + BATCH_SIZE);
 
-        setProgress({ phase: "mapping", current: completed + 1, total });
+        setProgress({ phase: "mapping", current: completed + batch.length, total });
 
         type MapEntry = { file_name: string; material_type: string; data: Record<string, unknown> };
         const batchResults = await Promise.all(
@@ -259,7 +259,7 @@ export default function PlanPage() {
                 {progress === null
                   ? "正在准备..."
                   : progress.phase === "mapping"
-                  ? `正在分析第 ${progress.current}/${progress.total} 份文件...`
+                  ? `${progress.current}/${progress.total} 个文件分析中...`
                   : "正在生成复习计划..."}
               </p>
               <p className="text-muted/50 text-xs">已等待 {elapsed} 秒</p>
@@ -268,7 +268,7 @@ export default function PlanPage() {
               <div className="w-full bg-background rounded-full h-1 border border-white/5">
                 <div
                   className="bg-accent h-1 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.round((progress.current - 1) / progress.total * 100)}%` }}
+                  style={{ width: `${Math.round(progress.current / progress.total * 100)}%` }}
                 />
               </div>
             )}
