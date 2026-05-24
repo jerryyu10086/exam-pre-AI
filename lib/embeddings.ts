@@ -3,7 +3,7 @@ import { EMBEDDING_MODEL } from "./config";
 const ZHIPU_API_KEY = process.env.ZHIPU_API_KEY;
 const ZHIPU_EMBEDDING_URL = "https://open.bigmodel.cn/api/paas/v4/embeddings";
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 50;
 
 export async function embedBatch(texts: string[]): Promise<number[][]> {
   if (!ZHIPU_API_KEY) {
