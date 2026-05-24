@@ -32,10 +32,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: cacheErr.message }, { status: 500 });
     }
 
-    const mapResults = (Array.isArray(cached?.maps_cache) ? cached.maps_cache : []) as MapEntry[];
+    // 过滤掉已从知识库删除的文件，只保留当前 chunks 中存在的条目
+    const { data: currentChunks } = await supabase
+      .from("chunks")
+      .select("file_name")
+      .eq("exam_id", exam_id)
+      .neq("material_type", "textbook");
+
+    const currentFileNames = new Set(
+      (currentChunks ?? []).map((c: { file_name: string }) => c.file_name)
+    );
+
+    const mapResults = (Array.isArray(cached?.maps_cache) ? cached.maps_cache : [])
+      .filter((e: MapEntry) => currentFileNames.has(e.file_name)) as MapEntry[];
 
     if (mapResults.length === 0) {
-      return NextResponse.json({ error: "没有可分析的课件或真题，请先完成文件分析" }, { status: 400 });
+      return NextResponse.json({ error: "没有可分析的课件或真题，请先上传并存入知识库" }, { status: 400 });
     }
 
     // 送 REDUCE 前剥掉 B部分（explanation），只发 A部分给 REDUCE
@@ -76,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     const { error: upsertError } = await supabase
       .from("plans")
-      .upsert({ exam_id, data: mergedPlanData }, { onConflict: "exam_id" });
+      .upsert({ exam_id, data: mergedPlanData, maps_cache: mapResults }, { onConflict: "exam_id" });
 
     if (upsertError) {
       return NextResponse.json({ error: upsertError.message }, { status: 500 });
