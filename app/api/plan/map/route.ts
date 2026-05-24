@@ -83,11 +83,22 @@ export async function POST(request: NextRequest) {
       newEntry,
     ];
 
-    const { error: upsertErr } = await supabase
+    // 先尝试 UPDATE（行已存在时只改 maps_cache，不碰 data）
+    const { data: updated, error: updateErr } = await supabase
       .from("plans")
-      .upsert({ exam_id, maps_cache: merged }, { onConflict: "exam_id" });
+      .update({ maps_cache: merged })
+      .eq("exam_id", exam_id)
+      .select("id");
 
-    if (upsertErr) return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+    if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+
+    // 行不存在（首次解析）→ INSERT，data 用空数组占位，REDUCE 阶段会覆盖
+    if (!updated || updated.length === 0) {
+      const { error: insertErr } = await supabase
+        .from("plans")
+        .insert({ exam_id, maps_cache: merged, data: [] });
+      if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
