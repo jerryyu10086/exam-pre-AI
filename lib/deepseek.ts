@@ -35,16 +35,32 @@ function fixEscapes(s: string): string {
   return s.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
 }
 
+// 多策略尝试解析，失败返回 null
+function tryParse(s: string): unknown | null {
+  const cleaned = s.trim();
+  // 策略1：修复非法转义
+  try { return JSON.parse(fixEscapes(cleaned)); } catch {}
+  // 策略2：去掉控制字符再修复转义
+  try { return JSON.parse(fixEscapes(cleaned.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ""))); } catch {}
+  return null;
+}
+
 // 从 DeepSeek 输出中提取 JSON：优先取最后一个代码块（兼容 CoT 推理前缀），兜底直接解析
 export function extractJSON(text: string): unknown {
   const matches = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)];
   if (matches.length > 0) {
-    return JSON.parse(fixEscapes(matches[matches.length - 1][1].trim()));
+    const r = tryParse(matches[matches.length - 1][1]);
+    if (r !== null) return r;
   }
   // 兜底：从最后一个 [ 开始找 JSON 数组
   const lastBracket = text.lastIndexOf("[");
   if (lastBracket !== -1) {
-    return JSON.parse(fixEscapes(text.slice(lastBracket).trim()));
+    const r = tryParse(text.slice(lastBracket));
+    if (r !== null) return r;
   }
-  return JSON.parse(fixEscapes(text.trim()));
+  const r = tryParse(text);
+  if (r !== null) return r;
+  // 最终兜底：返回空对象，不抛错，保证批次继续
+  console.error("extractJSON: 所有解析策略失败，返回空对象。原始内容片段：", text.slice(0, 200));
+  return {};
 }
