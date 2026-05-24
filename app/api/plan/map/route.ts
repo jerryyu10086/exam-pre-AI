@@ -23,7 +23,7 @@ type MapEntry = {
   data: Record<string, unknown>;
 };
 
-// POST /api/plan/map — 对单个文件跑 MAP，结果合并写入 plans.maps_cache
+// POST /api/plan/map — 对单个文件跑 MAP，只返回结果，不写库
 export async function POST(request: NextRequest) {
   try {
     const { exam_id, file_name } = await request.json();
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const { material_type, has_answers } = rows[0];
 
     if (material_type === "textbook") {
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, result: null });
     }
 
     const fullText = rows
@@ -68,9 +68,29 @@ export async function POST(request: NextRequest) {
 
     const raw = await callDeepSeek([{ role: "user", content: prompt }]);
     const mapJson = extractJSON(raw) as Record<string, unknown>;
-    const newEntry: MapEntry = { file_name, material_type, data: mapJson };
+    const result: MapEntry = { file_name, material_type, data: mapJson };
 
-    // 读取已有 cache，将本文件结果合并写回
+    return NextResponse.json({ success: true, result });
+  } catch (err) {
+    console.error("MAP error:", err);
+    const msg = err instanceof Error ? err.message : "服务器错误";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+// PATCH /api/plan/map — 将一批 MAP 结果原子写入 maps_cache
+export async function PATCH(request: NextRequest) {
+  try {
+    const { exam_id, entries } = await request.json() as {
+      exam_id: string;
+      entries: MapEntry[];
+    };
+    if (!exam_id || !Array.isArray(entries) || entries.length === 0) {
+      return NextResponse.json({ error: "缺少 exam_id 或 entries" }, { status: 400 });
+    }
+
+    const supabase = createServiceClient();
+
     const { data: existing } = await supabase
       .from("plans")
       .select("maps_cache")
@@ -78,12 +98,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     const existingCache = (Array.isArray(existing?.maps_cache) ? existing.maps_cache : []) as MapEntry[];
+    const newNames = new Set(entries.map((e) => e.file_name));
     const merged = [
-      ...existingCache.filter((e) => e.file_name !== file_name),
-      newEntry,
+      ...existingCache.filter((e) => !newNames.has(e.file_name)),
+      ...entries,
     ];
 
-    // 先尝试 UPDATE（行已存在时只改 maps_cache，不碰 data）
     const { data: updated, error: updateErr } = await supabase
       .from("plans")
       .update({ maps_cache: merged })
@@ -92,7 +112,6 @@ export async function POST(request: NextRequest) {
 
     if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
 
-    // 行不存在（首次解析）→ INSERT，data 用空数组占位，REDUCE 阶段会覆盖
     if (!updated || updated.length === 0) {
       const { error: insertErr } = await supabase
         .from("plans")
@@ -102,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("MAP error:", err);
+    console.error("MAP PATCH error:", err);
     const msg = err instanceof Error ? err.message : "服务器错误";
     return NextResponse.json({ error: msg }, { status: 500 });
   }

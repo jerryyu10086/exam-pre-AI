@@ -128,20 +128,49 @@ export default function PlanPage() {
       // 3. 只 MAP 未缓存的文件（首次解析=全部，重新解析=仅新增）
       const filesToMap = allFiles.filter((f) => !cachedNames.has(f.name));
 
-      // 4. 逐文件串行 MAP
-      for (let i = 0; i < filesToMap.length; i++) {
-        if (controller.signal.aborted) return;
-        setProgress({ phase: "mapping", current: i + 1, total: filesToMap.length });
+      // 4. 批并行 MAP：每批最多 3 个并行，批结束后统一写库
+      const BATCH_SIZE = 3;
+      let completed = 0;
+      const total = filesToMap.length;
 
-        const mapRes = await fetch("/api/plan/map", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ exam_id: params.id, file_name: filesToMap[i].name }),
-          signal: controller.signal,
-        });
-        let mapData: Record<string, unknown> | null = null;
-        try { mapData = await mapRes.json(); } catch { throw new Error("服务器响应超时，请重试"); }
-        if (!mapRes.ok) throw new Error((mapData?.error as string) ?? "文件分析失败");
+      for (let i = 0; i < total; i += BATCH_SIZE) {
+        if (controller.signal.aborted) return;
+        const batch = filesToMap.slice(i, i + BATCH_SIZE);
+
+        setProgress({ phase: "mapping", current: completed + 1, total });
+
+        type MapEntry = { file_name: string; material_type: string; data: Record<string, unknown> };
+        const batchResults = await Promise.all(
+          batch.map(async (file) => {
+            const res = await fetch("/api/plan/map", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ exam_id: params.id, file_name: file.name }),
+              signal: controller.signal,
+            });
+            let data: { success?: boolean; result?: MapEntry | null; error?: string } | null = null;
+            try { data = await res.json(); } catch { throw new Error("服务器响应超时，请重试"); }
+            if (!res.ok) throw new Error((data?.error) ?? "文件分析失败");
+            return data?.result ?? null;
+          })
+        );
+
+        // 过滤掉 textbook（result 为 null）后批量写库
+        const entriesToSave = batchResults.filter((r): r is MapEntry => r !== null);
+        if (entriesToSave.length > 0) {
+          const patchRes = await fetch("/api/plan/map", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ exam_id: params.id, entries: entriesToSave }),
+            signal: controller.signal,
+          });
+          let patchData: { error?: string } | null = null;
+          try { patchData = await patchRes.json(); } catch { throw new Error("保存分析结果超时，请重试"); }
+          if (!patchRes.ok) throw new Error((patchData?.error) ?? "保存分析结果失败");
+        }
+
+        completed += batch.length;
+        setProgress({ phase: "mapping", current: completed, total });
       }
 
       // 5. REDUCE
