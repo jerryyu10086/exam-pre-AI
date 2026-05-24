@@ -5,6 +5,8 @@ import { parseDocx } from "@/lib/docx";
 import { parseIpynb } from "@/lib/ipynb";
 import { embedBatch } from "@/lib/embeddings";
 
+export const maxDuration = 55;
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -75,7 +77,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, chunks: chunks.length });
   } catch (err) {
     console.error("Upload error:", err);
-    return NextResponse.json({ error: "服务器错误" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "服务器错误";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 

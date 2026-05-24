@@ -4,6 +4,8 @@ import { callDeepSeek } from "@/lib/deepseek";
 import { embedBatch } from "@/lib/embeddings";
 import { TOP_K } from "@/lib/config";
 
+export const maxDuration = 55;
+
 // GET /api/chat?exam_id=xxx&chapter_order=1  → 列出该章节的对话
 // GET /api/chat?conversation_id=yyy          → 获取对话消息列表
 export async function GET(request: NextRequest) {

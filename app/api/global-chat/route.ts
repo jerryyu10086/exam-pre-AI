@@ -8,6 +8,8 @@ import {
   TOP_K,
 } from "@/lib/config";
 
+export const maxDuration = 55;
+
 type KnowledgePoint = {
   tier: string;
   name: string;
