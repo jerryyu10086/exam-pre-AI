@@ -214,7 +214,7 @@ export default function PlanPage() {
               {summary.slides === 0 && summary.exam === 0 && summary.textbook === 0 && (
                 <p className="text-muted text-sm">暂无已上传材料</p>
               )}
-              <p className="text-muted text-xs mt-3">分析需要一定时间，可放在后台静默运行</p>
+              <p className="text-muted text-xs mt-3">分析需要一定时间，可在后台等候完成</p>
             </>
           )}
         </div>
