@@ -3,6 +3,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 
 type FileSummary = { slides: number; exam: number; textbook: number };
+type FileItem = { name: string };
 
 async function fetchFileSummary(examId: string): Promise<FileSummary> {
   const types = ["slides", "exam", "textbook"] as const;
@@ -16,6 +17,16 @@ async function fetchFileSummary(examId: string): Promise<FileSummary> {
     })
   );
   return counts;
+}
+
+async function fetchFileNames(examId: string): Promise<FileItem[]> {
+  const [slidesRes, examRes] = await Promise.all([
+    fetch(`/api/upload?exam_id=${examId}&material_type=slides`),
+    fetch(`/api/upload?exam_id=${examId}&material_type=exam`),
+  ]);
+  const slides: FileItem[] = slidesRes.ok ? await slidesRes.json() : [];
+  const exams: FileItem[] = examRes.ok ? await examRes.json() : [];
+  return [...slides, ...exams];
 }
 
 const CONTEXT_FIELDS = [
@@ -45,6 +56,12 @@ function buildUserContext(ctx: ContextFields): string {
     .join("\n");
 }
 
+type Progress = {
+  phase: "mapping" | "reducing";
+  current: number;
+  total: number;
+};
+
 export default function PlanPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -54,6 +71,7 @@ export default function PlanPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [isReanalysis, setIsReanalysis] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [progress, setProgress] = useState<Progress | null>(null);
 
   const previousPlanRef = useRef<unknown>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -85,6 +103,14 @@ export default function PlanPage() {
 
   const canStart = summary ? summary.slides > 0 || summary.exam > 0 : false;
 
+  const fileCount = summary ? summary.slides + summary.exam : 0;
+  const estimatedStr = (() => {
+    if (isReanalysis) return "约30秒";
+    const seconds = fileCount * 30 + 20;
+    if (seconds < 60) return `约${seconds}秒`;
+    return `约${Math.ceil(seconds / 60)}分钟`;
+  })();
+
   function setField(key: keyof ContextFields, value: string) {
     setCtx((prev) => ({ ...prev, [key]: value }));
   }
@@ -93,29 +119,54 @@ export default function PlanPage() {
     setShowModal(false);
     setStatus("loading");
     setErrorMsg("");
+    setProgress(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
+      // 1. 获取所有文件名（slides + exam）
+      const allFiles = await fetchFileNames(params.id);
+
+      // 2. 获取已缓存的文件名
+      const cacheRes = await fetch(`/api/plan?exam_id=${params.id}&include_cache=true`);
+      const cacheData = cacheRes.ok ? await cacheRes.json() : { cache_file_names: [] };
+      const cachedNames = new Set<string>(cacheData.cache_file_names ?? []);
+
+      // 3. 只 MAP 未缓存的文件（首次解析=全部，重新解析=仅新增）
+      const filesToMap = allFiles.filter((f) => !cachedNames.has(f.name));
+
+      // 4. 逐文件串行 MAP
+      for (let i = 0; i < filesToMap.length; i++) {
+        if (controller.signal.aborted) return;
+        setProgress({ phase: "mapping", current: i + 1, total: filesToMap.length });
+
+        const mapRes = await fetch("/api/plan/map", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ exam_id: params.id, file_name: filesToMap[i].name }),
+          signal: controller.signal,
+        });
+        let mapData: Record<string, unknown> | null = null;
+        try { mapData = await mapRes.json(); } catch { throw new Error("服务器响应超时，请重试"); }
+        if (!mapRes.ok) throw new Error((mapData?.error as string) ?? "文件分析失败");
+      }
+
+      // 5. REDUCE
+      if (controller.signal.aborted) return;
+      setProgress({ phase: "reducing", current: 0, total: 0 });
+
       const res = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          exam_id: params.id,
-          user_context: buildUserContext(ctx),
-          reanalysis: isReanalysis,
-        }),
+        body: JSON.stringify({ exam_id: params.id, user_context: buildUserContext(ctx) }),
         signal: controller.signal,
       });
       let data: Record<string, unknown> | null = null;
-      try {
-        data = await res.json();
-      } catch {
-        throw new Error("服务器响应超时，请重试");
-      }
+      try { data = await res.json(); } catch { throw new Error("服务器响应超时，请重试"); }
       if (!res.ok) throw new Error((data?.error as string) ?? "生成失败");
-      // 解析成功后把 Page 2 缓存里的 isStale 清掉，避免返回时闪现提示
+
+      // 解析成功后清除 Page 2 缓存的 isStale
       try {
         const cacheKey = `p2_${params.id}`;
         const cached = sessionStorage.getItem(cacheKey);
@@ -123,11 +174,13 @@ export default function PlanPage() {
           sessionStorage.setItem(cacheKey, JSON.stringify({ ...JSON.parse(cached), isStale: false }));
         }
       } catch {}
+
       router.push(`/exam/${params.id}/review`);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
       setErrorMsg(err instanceof Error ? err.message : "生成失败，请重试");
       setStatus("error");
+      setProgress(null);
     }
   }
 
@@ -169,21 +222,38 @@ export default function PlanPage() {
               {summary.slides === 0 && summary.exam === 0 && summary.textbook === 0 && (
                 <p className="text-muted text-sm">暂无已上传材料</p>
               )}
-              <p className="text-muted text-xs mt-3">
-                预计耗时：{isReanalysis ? "约30秒" : "约1分钟"}
-              </p>
+              <p className="text-muted text-xs mt-3">预计耗时：{estimatedStr}</p>
             </>
           )}
         </div>
 
         {isReanalysis && status === "idle" && (
-          <p className="text-muted text-xs mb-4">重新解析将跳过已缓存的文件分析，仅重新生成复习计划</p>
+          <p className="text-muted text-xs mb-4">重新解析将跳过已缓存的文件分析，仅对新增文件重新分析</p>
         )}
+
         {status === "loading" && (
-          <p className="text-muted text-sm mb-4">
-            AI 正在分析材料，请耐心等待...（已等待 {elapsed} 秒）
-          </p>
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-muted text-sm">
+                {progress === null
+                  ? "正在准备..."
+                  : progress.phase === "mapping"
+                  ? `正在分析第 ${progress.current}/${progress.total} 份文件...`
+                  : "正在生成复习计划..."}
+              </p>
+              <p className="text-muted/50 text-xs">已等待 {elapsed} 秒</p>
+            </div>
+            {progress?.phase === "mapping" && progress.total > 0 && (
+              <div className="w-full bg-background rounded-full h-1 border border-white/5">
+                <div
+                  className="bg-accent h-1 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.round((progress.current - 1) / progress.total * 100)}%` }}
+                />
+              </div>
+            )}
+          </div>
         )}
+
         {errorMsg && (
           <p className="text-tier-must text-sm mb-4">{errorMsg}</p>
         )}

@@ -1,22 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { callDeepSeek, extractJSON } from "@/lib/deepseek";
-import {
-  buildMapSlidesPrompt,
-  buildMapExamWithAnswersPrompt,
-  buildMapExamNoAnswersPrompt,
-  buildReducePrompt,
-} from "@/lib/prompts";
+import { buildReducePrompt } from "@/lib/prompts";
 
-export const maxDuration = 300;
-
-type ChunkRow = {
-  file_name: string;
-  material_type: string;
-  content: string;
-  chunk_index: number;
-  has_answers: boolean | null;
-};
+export const maxDuration = 55;
 
 type MapEntry = {
   file_name: string;
@@ -24,67 +11,31 @@ type MapEntry = {
   data: Record<string, unknown>;
 };
 
-// POST /api/plan — MAP（首次）或跳过MAP（重新解析）+ REDUCE
+// POST /api/plan — 读取 maps_cache 直接跑 REDUCE，生成复习计划
+// MAP 阶段已由前端逐文件调用 /api/plan/map 完成
 export async function POST(request: NextRequest) {
   try {
-    const { exam_id, user_context, reanalysis } = await request.json();
+    const { exam_id, user_context } = await request.json();
     if (!exam_id) {
       return NextResponse.json({ error: "缺少 exam_id" }, { status: 400 });
     }
 
     const supabase = createServiceClient();
-    let mapResults: MapEntry[];
 
-    if (reanalysis) {
-      const { data: cached } = await supabase
-        .from("plans")
-        .select("maps_cache")
-        .eq("exam_id", exam_id)
-        .single();
+    const { data: cached, error: cacheErr } = await supabase
+      .from("plans")
+      .select("maps_cache")
+      .eq("exam_id", exam_id)
+      .single();
 
-      const existingCache = (Array.isArray(cached?.maps_cache) ? cached.maps_cache : []) as MapEntry[];
+    if (cacheErr && cacheErr.code !== "PGRST116") {
+      return NextResponse.json({ error: cacheErr.message }, { status: 500 });
+    }
 
-      // 获取当前知识库中存在的非课本文件
-      const { data: currentChunks } = await supabase
-        .from("chunks")
-        .select("file_name")
-        .eq("exam_id", exam_id)
-        .neq("material_type", "textbook");
+    const mapResults = (Array.isArray(cached?.maps_cache) ? cached.maps_cache : []) as MapEntry[];
 
-      const currentFileNames = new Set(
-        (currentChunks ?? []).map((c: { file_name: string }) => c.file_name)
-      );
-
-      // 过滤掉已删除文件的缓存条目
-      const filteredCache = existingCache.filter((e) => currentFileNames.has(e.file_name));
-      const cachedNames = new Set(filteredCache.map((e) => e.file_name));
-
-      // 找出新增文件（在 chunks 但不在过滤后的缓存里）
-      const newFileNames = [...currentFileNames].filter((f) => !cachedNames.has(f));
-
-      if (newFileNames.length > 0) {
-        const newMapRun = await runMap(supabase, exam_id, newFileNames);
-        if (newMapRun.dbError) return NextResponse.json({ error: `数据库查询失败：${newMapRun.dbError}` }, { status: 500 });
-        if (newMapRun.failedFiles.length > 0) console.warn(`新文件 MAP 部分失败: ${newMapRun.failedFiles.join("、")}`);
-        mapResults = [...filteredCache, ...newMapRun.results];
-      } else {
-        mapResults = filteredCache;
-      }
-
-      // 兜底：缓存为空时全量跑
-      if (mapResults.length === 0) {
-        const mapRun = await runMap(supabase, exam_id);
-        if (mapRun.dbError) return NextResponse.json({ error: `数据库查询失败：${mapRun.dbError}` }, { status: 500 });
-        if (mapRun.noChunks) return NextResponse.json({ error: "没有可分析的课件或真题，请先上传并存入知识库" }, { status: 400 });
-        if (mapRun.results.length === 0) return NextResponse.json({ error: `AI分析失败（${mapRun.failedFiles.join("、")}），请检查 API Key 或稍后重试` }, { status: 500 });
-        mapResults = mapRun.results;
-      }
-    } else {
-      const mapRun = await runMap(supabase, exam_id);
-      if (mapRun.dbError) return NextResponse.json({ error: `数据库查询失败：${mapRun.dbError}` }, { status: 500 });
-      if (mapRun.noChunks) return NextResponse.json({ error: "没有可分析的课件或真题，请先上传并存入知识库" }, { status: 400 });
-      if (mapRun.results.length === 0) return NextResponse.json({ error: `AI分析失败（${mapRun.failedFiles.join("、")}），请检查 API Key 或稍后重试` }, { status: 500 });
-      mapResults = mapRun.results;
+    if (mapResults.length === 0) {
+      return NextResponse.json({ error: "没有可分析的课件或真题，请先完成文件分析" }, { status: 400 });
     }
 
     // 送 REDUCE 前剥掉 B部分（explanation），只发 A部分给 REDUCE
@@ -101,7 +52,7 @@ export async function POST(request: NextRequest) {
     const reduceRaw = await callDeepSeek([{ role: "user", content: reducePrompt }]);
     const planData = extractJSON(reduceRaw) as Record<string, unknown>[];
 
-    // REDUCE 返回后按 id 将 B部分（explanation）从 maps_cache 补回
+    // REDUCE 完成后按 id 将 B部分（explanation）从 maps_cache 补回
     const explanationLookup = new Map<string, Map<string, string>>();
     for (const entry of mapResults) {
       if (entry.material_type !== "slides") continue;
@@ -125,10 +76,7 @@ export async function POST(request: NextRequest) {
 
     const { error: upsertError } = await supabase
       .from("plans")
-      .upsert(
-        { exam_id, data: mergedPlanData, maps_cache: mapResults },
-        { onConflict: "exam_id" }
-      );
+      .upsert({ exam_id, data: mergedPlanData }, { onConflict: "exam_id" });
 
     if (upsertError) {
       return NextResponse.json({ error: upsertError.message }, { status: 500 });
@@ -139,96 +87,6 @@ export async function POST(request: NextRequest) {
     console.error("Plan generation error:", err);
     return NextResponse.json({ error: "服务器错误" }, { status: 500 });
   }
-}
-
-type RunMapResult = {
-  results: MapEntry[];
-  noChunks: boolean;
-  dbError: string | null;
-  failedFiles: string[];
-};
-
-async function runMap(
-  supabase: ReturnType<typeof createServiceClient>,
-  exam_id: string,
-  fileNamesFilter?: string[]
-): Promise<RunMapResult> {
-  let query = supabase
-    .from("chunks")
-    .select("file_name, material_type, content, chunk_index, has_answers")
-    .eq("exam_id", exam_id)
-    .order("chunk_index", { ascending: true });
-
-  if (fileNamesFilter && fileNamesFilter.length > 0) {
-    query = query.in("file_name", fileNamesFilter);
-  }
-
-  const { data: chunks, error } = await query;
-
-  if (error) {
-    console.error("runMap DB error:", error);
-    return { results: [], noChunks: false, dbError: error.message, failedFiles: [] };
-  }
-  if (!chunks || chunks.length === 0) {
-    return { results: [], noChunks: true, dbError: null, failedFiles: [] };
-  }
-
-  const fileMap = new Map<
-    string,
-    { material_type: string; has_answers: boolean | null; rows: ChunkRow[] }
-  >();
-  for (const row of chunks as ChunkRow[]) {
-    if (!fileMap.has(row.file_name)) {
-      fileMap.set(row.file_name, {
-        material_type: row.material_type,
-        has_answers: row.has_answers ?? null,
-        rows: [],
-      });
-    }
-    fileMap.get(row.file_name)!.rows.push(row);
-  }
-
-  const entries = [...fileMap.entries()].filter(
-    ([, { material_type }]) => material_type !== "textbook"
-  );
-
-  const settled = await Promise.allSettled(
-    entries.map(async ([fileName, { material_type, has_answers, rows }]) => {
-      const fullText = rows
-        .sort((a, b) => a.chunk_index - b.chunk_index)
-        .map((r) => r.content)
-        .join("\n");
-
-      let prompt: string;
-      if (material_type === "slides") {
-        prompt = buildMapSlidesPrompt(fullText);
-      } else {
-        prompt = has_answers !== false
-          ? buildMapExamWithAnswersPrompt(fullText)
-          : buildMapExamNoAnswersPrompt(fullText);
-      }
-
-      const raw = await callDeepSeek([{ role: "user", content: prompt }]);
-      const mapJson = extractJSON(raw) as Record<string, unknown>;
-      return { file_name: fileName, material_type, data: mapJson } as MapEntry;
-    })
-  );
-
-  const results: MapEntry[] = [];
-  const failedFiles: string[] = [];
-
-  for (let i = 0; i < settled.length; i++) {
-    const result = settled[i];
-    const fileName = entries[i][0];
-    if (result.status === "fulfilled") {
-      results.push(result.value);
-    } else {
-      console.error(`MAP failed for ${fileName}:`, result.reason);
-      failedFiles.push(fileName);
-    }
-  }
-
-  return { results, noChunks: false, dbError: null, failedFiles };
 }
 
 // PATCH /api/plan — 直接写入 plan 数据（取消时恢复旧数据）
