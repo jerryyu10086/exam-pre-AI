@@ -76,17 +76,30 @@ export async function POST(request: NextRequest) {
     }
 
     // REDUCE 只输出 tier 分配（id+tier），在此合并回 MAP 完整知识点内容（concept/knowledge/source）
+    console.log("[REDUCE merge] reduceInput files:", reduceInput.map((e) => {
+      const kps = ((e.data as Record<string, unknown>).knowledge_points ?? []) as unknown[];
+      return `${e.file_name}(${e.material_type}):kps=${kps.length}`;
+    }));
+    console.log("[REDUCE merge] planDataRaw files:", (planDataRaw as Record<string, unknown>[]).map((e) =>
+      `${e.file_name as string}:kps=${((e.knowledge_points ?? []) as unknown[]).length}`
+    ));
+
     const planData = (planDataRaw as Record<string, unknown>[]).map((fileEntry) => {
       const mapEntry = reduceInput.find(
         (e) => e.file_name === (fileEntry.file_name as string) && e.material_type === "slides"
       );
-      if (!mapEntry) return fileEntry;
+      if (!mapEntry) {
+        console.warn("[REDUCE merge] no mapEntry for:", fileEntry.file_name);
+        return fileEntry;
+      }
 
       const fullKps = ((mapEntry.data as Record<string, unknown>).knowledge_points ?? []) as Record<string, unknown>[];
       const tierMap = new Map<string, string>();
       for (const kp of ((fileEntry.knowledge_points ?? []) as Record<string, unknown>[])) {
         if (kp.id) tierMap.set(kp.id as string, kp.tier as string);
       }
+
+      console.log(`[REDUCE merge] ${fileEntry.file_name as string}: fullKps=${fullKps.length}, tierMap=${tierMap.size}`);
 
       const mergedKps = fullKps.map((kp) => ({
         ...kp,
