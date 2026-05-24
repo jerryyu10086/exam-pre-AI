@@ -66,6 +66,34 @@ function tryParse(s: string): unknown | null {
   return null;
 }
 
+// 截断 JSON 修复：逐字符提取完整的 {...} 对象，用于 MAP 输出被截断时的兜底
+function extractCompleteObjects(text: string): unknown[] {
+  const results: unknown[] = [];
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] !== "{") { i++; continue; }
+    let depth = 0, inStr = false, esc = false, start = i;
+    for (; i < text.length; i++) {
+      const c = text[i];
+      if (esc) { esc = false; continue; }
+      if (c === "\\") { esc = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === "{") depth++;
+      else if (c === "}") {
+        if (--depth === 0) {
+          const parsed = tryParse(text.slice(start, i + 1));
+          if (parsed !== null) results.push(parsed);
+          i++;
+          break;
+        }
+      }
+    }
+    if (depth > 0) break; // 未闭合对象，截断点，停止
+  }
+  return results;
+}
+
 // 从 DeepSeek 输出中提取 JSON：优先取最后一个代码块（兼容 CoT 推理前缀），兜底直接解析
 export function extractJSON(text: string): unknown {
   const matches = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)];
@@ -81,7 +109,16 @@ export function extractJSON(text: string): unknown {
   }
   const r = tryParse(text);
   if (r !== null) return r;
-  // 最终兜底：返回空对象，不抛错，保证批次继续
+  // 截断修复兜底：提取所有完整 {...} 对象，重建 knowledge_points 结构
+  const kpStart = text.indexOf('"knowledge_points"');
+  if (kpStart !== -1) {
+    const objs = extractCompleteObjects(text.slice(kpStart));
+    const kps = objs.filter((o) => typeof o === "object" && o !== null && "id" in (o as object));
+    if (kps.length > 0) {
+      console.warn(`extractJSON: 截断修复，成功提取 ${kps.length} 个知识点`);
+      return { knowledge_points: kps };
+    }
+  }
   console.error("extractJSON: 所有解析策略失败，返回空对象。原始内容片段：", text.slice(0, 200));
   return {};
 }
