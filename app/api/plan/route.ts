@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { callDeepSeek, extractJSON } from "@/lib/deepseek";
-import { buildReducePhase1Prompt, buildReducePhase2Prompt } from "@/lib/prompts";
+import { buildReducePrompt } from "@/lib/prompts";
 
 export const maxDuration = 55;
 
@@ -60,15 +60,8 @@ export async function POST(request: NextRequest) {
       return { ...entry, data: { ...data, knowledge_points: kps } };
     });
 
-    const phase1Prompt = buildReducePhase1Prompt(JSON.stringify(reduceInput, null, 2), user_context);
-    const phase1Raw = await callDeepSeek([{ role: "user", content: phase1Prompt }], { max_tokens: 4096 });
-
-    const phase2Prompt = buildReducePhase2Prompt();
-    const reduceRaw = await callDeepSeek([
-      { role: "user", content: phase1Prompt },
-      { role: "assistant", content: phase1Raw },
-      { role: "user", content: phase2Prompt },
-    ], { max_tokens: 4096 });
+    const reducePrompt = buildReducePrompt(JSON.stringify(reduceInput, null, 2), user_context);
+    const reduceRaw = await callDeepSeek([{ role: "user", content: reducePrompt }]);
     const planDataRaw = extractJSON(reduceRaw);
     if (!Array.isArray(planDataRaw) || planDataRaw.length === 0) {
       console.error("REDUCE 结果不是数组，末尾500字符：", reduceRaw.slice(-500));
@@ -76,30 +69,17 @@ export async function POST(request: NextRequest) {
     }
 
     // REDUCE 只输出 tier 分配（id+tier），在此合并回 MAP 完整知识点内容（concept/knowledge/source）
-    console.log("[REDUCE merge] reduceInput files:", reduceInput.map((e) => {
-      const kps = ((e.data as Record<string, unknown>).knowledge_points ?? []) as unknown[];
-      return `${e.file_name}(${e.material_type}):kps=${kps.length}`;
-    }));
-    console.log("[REDUCE merge] planDataRaw files:", (planDataRaw as Record<string, unknown>[]).map((e) =>
-      `${e.file_name as string}:kps=${((e.knowledge_points ?? []) as unknown[]).length}`
-    ));
-
     const planData = (planDataRaw as Record<string, unknown>[]).map((fileEntry) => {
       const mapEntry = reduceInput.find(
         (e) => e.file_name === (fileEntry.file_name as string) && e.material_type === "slides"
       );
-      if (!mapEntry) {
-        console.warn("[REDUCE merge] no mapEntry for:", fileEntry.file_name);
-        return fileEntry;
-      }
+      if (!mapEntry) return fileEntry;
 
       const fullKps = ((mapEntry.data as Record<string, unknown>).knowledge_points ?? []) as Record<string, unknown>[];
       const tierMap = new Map<string, string>();
       for (const kp of ((fileEntry.knowledge_points ?? []) as Record<string, unknown>[])) {
         if (kp.id) tierMap.set(kp.id as string, kp.tier as string);
       }
-
-      console.log(`[REDUCE merge] ${fileEntry.file_name as string}: fullKps=${fullKps.length}, tierMap=${tierMap.size}`);
 
       const mergedKps = fullKps.map((kp) => ({
         ...kp,

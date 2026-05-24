@@ -18,9 +18,9 @@ export function buildMapSlidesPrompt(fileText: string): string {
 字段说明：
 - id：kp_0、kp_1、kp_2 依次递增，用于跨步骤稳定引用，不得重复
 - concept：知识点的规范名称，必须是中文。若课件原文为英文，在括号内附上英文原名，格式：中文名（英文原名），如"最小势能原理（Minimum Potential Energy Principle）"、"常应变三角形（CST, Constant Strain Triangle）"。纯中文课件仅写中文，无需附英文。
-- knowledge：【A部分】完整还原该知识点的核心内容，包含定义、原理、关键结论、重要公式、需精确记忆的数值等。英文课件的专业术语首次出现时附英文括号（后续同一术语只写中文），数学符号保持英文。
+- knowledge：【A部分】完整还原该知识点的核心内容，包含定义、原理、关键结论、重要公式、需精确记忆的数值等。英文课件的专业术语在本字段首次出现时附英文括号（格式同 concept：中文名（英文原名））；若该术语已在 concept 中标注过，则 knowledge/explanation 中无需重复英文括号，直接写中文即可；后续同一术语只写中文；数学符号保持英文。
 - source：【A部分】在课件中的位置，如"第3章 细胞膜结构，第5页"，要求具体到页，不能只写章节
-- explanation：【B部分】帮助学生真正理解该知识点，不是重复 knowledge 的内容。英文课件的专业术语首次出现时附英文括号（后续同一术语只写中文），数学符号保持英文。
+- explanation：【B部分】帮助学生真正理解该知识点，不是重复 knowledge 的内容。英文课件中若出现 concept/knowledge 尚未标注过的新术语，首次出现时附英文括号；已标注过的术语只写中文；数学符号保持英文。
 
 {
   "knowledge_points": [
@@ -80,8 +80,7 @@ export function buildMapExamNoAnswersPrompt(fileText: string): string {
 ${fileText}`;
 }
 
-// Phase 1：输出 CoT 推理分析，不输出 JSON
-export function buildReducePhase1Prompt(allMapsJson: string, userContext?: string): string {
+export function buildReducePrompt(allMapsJson: string, userContext?: string): string {
   const userContextSection = userContext?.trim()
     ? `\n用户补充信息（作为优先级判断的重要参考）：\n${userContext.trim()}\n`
     : "";
@@ -107,22 +106,12 @@ ${userContextSection}
   - 补充：课件正常介绍但非核心
   - 拓展：课件一带而过，或属于背景/历史脉络
 
-━━ 请按以下步骤完成分析（输出分析文字，本轮不输出 JSON）━━
+━━ 请按以下步骤完成分析，最后输出 JSON ━━
 
 第一步：列出所有真题摘要（material_type="exam"）中明确考过的主题，每条注明信号强度（有答案/无答案）。若无真题，写"无真题，跳过"。
 第二步：逐份课件（material_type="slides"）检查，标出哪些知识点（用 id 引用）与第一步主题直接对应（必学候选），哪些间接相关（补充候选），哪些未被真题覆盖（拓展候选）。
 第三步：结合用户补充信息调整档位，并按综合重要性对所有课件排序（order 从 1 开始，1 = 最重要），说明排序理由。
-
-━━ 材料摘要 ━━
-
-${allMapsJson}`;
-}
-
-// Phase 2：根据 Phase 1 的分析，只输出紧凑 JSON
-export function buildReducePhase2Prompt(): string {
-  return `根据以上分析，现在输出最终 JSON。
-
-要求：
+第四步：输出最终 JSON，要求：
 - 只输出课件条目（不输出真题条目）
 - 放在 \`\`\`json 代码块中
 - knowledge_points 每条只含 id 和 tier 两个字段，禁止输出 knowledge/concept/source 等其他内容
@@ -144,5 +133,9 @@ export function buildReducePhase2Prompt(): string {
     ]
   }
 ]
-\`\`\``;
+\`\`\`
+
+━━ 材料摘要 ━━
+
+${allMapsJson}`;
 }
