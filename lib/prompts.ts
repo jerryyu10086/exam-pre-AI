@@ -80,7 +80,8 @@ export function buildMapExamNoAnswersPrompt(fileText: string): string {
 ${fileText}`;
 }
 
-export function buildReducePrompt(allMapsJson: string, userContext?: string): string {
+// Phase 1：输出 CoT 推理分析，不输出 JSON
+export function buildReducePhase1Prompt(allMapsJson: string, userContext?: string): string {
   const userContextSection = userContext?.trim()
     ? `\n用户补充信息（作为优先级判断的重要参考）：\n${userContext.trim()}\n`
     : "";
@@ -97,40 +98,43 @@ ${userContextSection}
 
 嵌套约束：必学⊂补充⊂拓展，每档只写该档新增的内容，不重复前一档已有的内容。
 
-示例（正确做法）：
-  必学：{ "id": "kp_1", "tier": "必学", "concept": "ATP合成", "knowledge": "细胞通过氧化磷酸化在线粒体内膜合成ATP" }
-  补充：{ "id": "kp_2", "tier": "补充", "concept": "ATP合酶结构", "knowledge": "由F0和F1亚基组成，质子驱动旋转催化ADP磷酸化" }  ← 不重复"氧化磷酸化"
-  拓展：{ "id": "kp_3", "tier": "拓展", "concept": "化学渗透假说", "knowledge": "Mitchell提出质子梯度驱动ATP合成的历史背景" }  ← 不重复前两档
-
-示例（错误做法，避免）：
-  补充：{ "id": "kp_2", "tier": "补充", "concept": "ATP合酶结构", "knowledge": "细胞通过氧化磷酸化合成ATP，ATP合酶由F0和F1亚基组成…" }  ← 重复了必学内容
-
 ━━ 真题信号强度说明 ━━
 
 - 有答案真题（含 answer_framework 字段）：最强信号，涉及的知识点直接列为必学候选。
 - 无答案真题（含 examination_angle 字段）：中等信号，参考考察方向但置信度低，需结合课件强调程度综合判断。
-- 无任何真题：跳过下方第一步，依据课件内部的覆盖深度、知识点间的关联性及用户补充信息判断档位；此时档位标准调整为：
+- 无任何真题：依据课件内部的覆盖深度、知识点间的关联性及用户补充信息判断档位；此时档位标准调整为：
   - 必学：课件明确反复强调，是其他知识点的基础概念
   - 补充：课件正常介绍但非核心
   - 拓展：课件一带而过，或属于背景/历史脉络
 
-━━ 推理步骤（先输出分析过程，再输出JSON）━━
-
-推理过程用自然语言，不要使用代码块；最终JSON单独放在一个\`\`\`json 代码块中。
+━━ 请按以下步骤完成分析（输出分析文字，本轮不输出 JSON）━━
 
 第一步：列出所有真题摘要（material_type="exam"）中明确考过的主题，每条注明信号强度（有答案/无答案）。若无真题，写"无真题，跳过"。
-第二步：逐份课件（material_type="slides"）检查，标出哪些知识点与第一步主题直接对应（必学候选），哪些间接相关（补充候选），哪些未被真题覆盖（拓展候选）。
-第三步：结合用户补充信息调整档位，并按综合重要性对所有课件排序（order 从 1 开始，1 = 最重要）。
-第四步：将结果输出为下方格式的JSON，放在\`\`\`json 代码块中。
+第二步：逐份课件（material_type="slides"）检查，标出哪些知识点（用 id 引用）与第一步主题直接对应（必学候选），哪些间接相关（补充候选），哪些未被真题覆盖（拓展候选）。
+第三步：结合用户补充信息调整档位，并按综合重要性对所有课件排序（order 从 1 开始，1 = 最重要），说明排序理由。
 
-━━ 最终JSON格式 ━━
+━━ 材料摘要 ━━
 
-仅包含课件条目（不输出真题条目）：
+${allMapsJson}`;
+}
 
+// Phase 2：根据 Phase 1 的分析，只输出紧凑 JSON
+export function buildReducePhase2Prompt(): string {
+  return `根据以上分析，现在输出最终 JSON。
+
+要求：
+- 只输出课件条目（不输出真题条目）
+- 放在 \`\`\`json 代码块中
+- knowledge_points 每条只含 id 和 tier 两个字段，禁止输出 knowledge/concept/source 等其他内容
+- importance 取值只能是：高频 / 中频 / 低频
+- file_name 与输入中完全一致
+
+格式：
+\`\`\`json
 [
   {
-    "file_name": "（与输入中的 file_name 完全一致）",
-    "display_name": "简洁的展示名（如：第三章 细胞膜结构）",
+    "file_name": "lecture_03.pdf",
+    "display_name": "第三章 细胞膜结构",
     "order": 1,
     "importance": "高频",
     "knowledge_points": [
@@ -140,11 +144,5 @@ ${userContextSection}
     ]
   }
 ]
-
-注意：knowledge_points 只输出 id 和 tier 两个字段，禁止输出 knowledge/concept/source/explanation 等其他字段。
-importance 取值只能是：高频 / 中频 / 低频
-
-━━ 材料摘要 ━━
-
-${allMapsJson}`;
+\`\`\``;
 }
