@@ -103,6 +103,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("MAP error:", err);
-    return NextResponse.json({ error: "服务器错误" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "服务器错误";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
