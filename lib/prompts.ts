@@ -17,7 +17,7 @@ export function buildMapSlidesPrompt(fileText: string): string {
 
 字段说明：
 - id：kp_0、kp_1、kp_2 依次递增，用于跨步骤稳定引用，不得重复
-- concept：知识点的规范名称（中文，专业术语附英文）
+- concept：知识点的规范名称，必须是中文。若课件原文为英文，在括号内附上英文原名，格式：中文名（英文原名），如"最小势能原理（Minimum Potential Energy Principle）"、"常应变三角形（CST, Constant Strain Triangle）"、"弹性矩阵（Elasticity Matrix）"。纯中文课件仅写中文，无需附英文。
 - knowledge：【A部分】完整还原该知识点的核心内容，包含定义、原理、关键结论、重要公式、需精确记忆的数值等（必须用中文）
 - source：【A部分】在课件中的位置，如"第3章 细胞膜结构，第5页"，要求具体到页，不能只写章节
 - explanation：【B部分】帮助学生真正理解该知识点，不是重复 knowledge 的内容（必须用中文）

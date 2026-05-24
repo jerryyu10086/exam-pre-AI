@@ -35,10 +35,10 @@ export default function ChapterCard({
 }: ChapterCardProps) {
   const stars = IMPORTANCE_STARS[importance] ?? "★";
 
-  // 按档位分组，只保留 concept
+  // 按档位分组，只保留 concept（过滤 undefined/空值，防止旧数据或合并失败时渲染空白）
   const byTier: Record<string, string[]> = { "必学": [], "补充": [], "拓展": [] };
   for (const kp of knowledgePoints) {
-    if (byTier[kp.tier]) byTier[kp.tier].push(kp.concept);
+    if (byTier[kp.tier] && kp.concept) byTier[kp.tier].push(kp.concept);
   }
 
   return (
