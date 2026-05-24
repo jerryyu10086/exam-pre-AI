@@ -134,11 +134,14 @@ ${userContextSection}
     "order": 1,
     "importance": "高频",
     "knowledge_points": [
-      { "id": "kp_0", "tier": "必学", "concept": "知识点名", "knowledge": "完整知识内容（与MAP原文一致）", "source": "来源位置" }
+      { "id": "kp_0", "tier": "必学" },
+      { "id": "kp_1", "tier": "补充" },
+      { "id": "kp_2", "tier": "拓展" }
     ]
   }
 ]
 
+注意：knowledge_points 只输出 id 和 tier，不要复制 knowledge/concept/source 等字段内容（系统将自动从原始数据补全）。
 importance 取值只能是：高频 / 中频 / 低频
 
 ━━ 材料摘要 ━━

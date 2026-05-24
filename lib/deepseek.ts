@@ -29,6 +29,9 @@ export async function callDeepSeek(messages: Message[], options?: { max_tokens?:
     }
 
     const data = await response.json();
+    if (data.choices[0].finish_reason === "length") {
+      console.warn("DeepSeek 输出被截断（finish_reason=length），输出 token 已达上限");
+    }
     return data.choices[0].message.content as string;
   };
 

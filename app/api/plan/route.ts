@@ -67,7 +67,27 @@ export async function POST(request: NextRequest) {
       console.error("REDUCE 结果不是数组，末尾500字符：", reduceRaw.slice(-500));
       return NextResponse.json({ error: "分析结果解析失败，请重试" }, { status: 500 });
     }
-    const planData = planDataRaw as Record<string, unknown>[];
+
+    // REDUCE 只输出 tier 分配（id+tier），在此合并回 MAP 完整知识点内容（concept/knowledge/source）
+    const planData = (planDataRaw as Record<string, unknown>[]).map((fileEntry) => {
+      const mapEntry = reduceInput.find(
+        (e) => e.file_name === (fileEntry.file_name as string) && e.material_type === "slides"
+      );
+      if (!mapEntry) return fileEntry;
+
+      const fullKps = ((mapEntry.data as Record<string, unknown>).knowledge_points ?? []) as Record<string, unknown>[];
+      const tierMap = new Map<string, string>();
+      for (const kp of ((fileEntry.knowledge_points ?? []) as Record<string, unknown>[])) {
+        if (kp.id) tierMap.set(kp.id as string, kp.tier as string);
+      }
+
+      const mergedKps = fullKps.map((kp) => ({
+        ...kp,
+        tier: tierMap.get(kp.id as string) ?? "拓展",
+      }));
+
+      return { ...fileEntry, knowledge_points: mergedKps };
+    });
 
     // REDUCE 完成后按 id 将 B部分（explanation）从 maps_cache 补回
     const explanationLookup = new Map<string, Map<string, string>>();
