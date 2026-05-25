@@ -57,10 +57,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, result: null });
     }
 
+    // 新上传课件的 chunk content 已带 [第X页] marker（chunkSlides 注入）
+    // 旧数据没有 marker → fallback 用 chunk_index+1 兜底（合并页时可能偏移，建议用户重新上传以获得准确页码）
     const fullText = rows
       .sort((a, b) => a.chunk_index - b.chunk_index)
-      .map((r) => r.content)
-      .join("\n");
+      .map((r) => {
+        const content = r.content;
+        if (/^\[第[\d、\-]+页\]/.test(content.trim())) return content;
+        return `[第${r.chunk_index + 1}页]\n${content}`;
+      })
+      .join("\n\n");
 
     let prompt: string;
     if (material_type === "slides") {
@@ -74,6 +80,8 @@ export async function POST(request: NextRequest) {
 
     const raw = await callDeepSeek([{ role: "user", content: prompt }], { json_mode: true });
     const mapJson = extractJSON(raw) as Record<string, unknown>;
+    const kpCount = (mapJson.knowledge_points as unknown[] | undefined)?.length ?? 0;
+    console.log(`[MAP ${file_name}] 输入${fullText.length}字符 → 输出${raw.length}字符 ${raw.trim().endsWith("}") ? "完整" : "可能截断"} → 提取${kpCount}个知识点`);
     const result: MapEntry = { file_name, material_type, data: mapJson };
 
     return NextResponse.json({ success: true, result });

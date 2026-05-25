@@ -33,27 +33,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: cacheErr.message }, { status: 500 });
     }
 
-    // 过滤掉已从知识库删除的文件，只保留当前 chunks 中存在的条目
+    // V1：只保留当前课件 chunks 中存在的条目（真题不参与 REDUCE，旧版残留的真题 MAP 缓存一并过滤）
     const { data: currentChunks } = await supabase
       .from("chunks")
       .select("file_name")
       .eq("exam_id", exam_id)
-      .neq("material_type", "textbook");
+      .eq("material_type", "slides");
 
     const currentFileNames = new Set(
       (currentChunks ?? []).map((c: { file_name: string }) => c.file_name)
     );
 
     const mapResults = (Array.isArray(cached?.maps_cache) ? cached.maps_cache : [])
-      .filter((e: MapEntry) => currentFileNames.has(e.file_name)) as MapEntry[];
+      .filter((e: MapEntry) =>
+        e.material_type === "slides" && currentFileNames.has(e.file_name)
+      ) as MapEntry[];
 
     if (mapResults.length === 0) {
-      return NextResponse.json({ error: "没有可分析的课件或真题，请先上传并存入知识库" }, { status: 400 });
+      return NextResponse.json({ error: "没有可分析的课件，请至少上传一份课件" }, { status: 400 });
     }
 
-    // 送 REDUCE 前剥掉 B部分（explanation），只发 A部分给 REDUCE
+    // 送 REDUCE 前剥掉 B部分（explanation），只发 A部分给 REDUCE（mapResults 已保证全是 slides）
     const reduceInput = mapResults.map((entry) => {
-      if (entry.material_type !== "slides") return entry;
       const data = entry.data as Record<string, unknown>;
       const kps = ((data.knowledge_points ?? []) as Record<string, unknown>[]).map(
         ({ explanation: _e, ...rest }) => rest
@@ -61,10 +62,17 @@ export async function POST(request: NextRequest) {
       return { ...entry, data: { ...data, knowledge_points: kps } };
     });
 
+    // 诊断：MAP 输入到 REDUCE 的每个文件的知识点数
+    for (const e of reduceInput) {
+      const kpCount = ((e.data as Record<string, unknown>).knowledge_points as unknown[] | undefined)?.length ?? 0;
+      console.log(`[REDUCE 输入] ${e.file_name} → ${kpCount} 个 MAP 知识点`);
+    }
+
     const reduceRaw = await callDeepSeek(
       [{ role: "user", content: buildReducePrompt(JSON.stringify(reduceInput, null, 2), user_context) }],
       { model: DEEPSEEK_REDUCE_MODEL, thinking: true },
     );
+    console.log(`[REDUCE 输出] raw=${reduceRaw.length}字符 ${reduceRaw.trim().endsWith("`") || reduceRaw.trim().endsWith("]") ? "完整" : "可能截断"}`);
     const planDataRaw = extractJSON(reduceRaw);
     if (!Array.isArray(planDataRaw) || planDataRaw.length === 0) {
       console.error("REDUCE 结果不是数组，末尾500字符：", reduceRaw.slice(-500));
@@ -77,6 +85,12 @@ export async function POST(request: NextRequest) {
     const planDataArr = planDataRaw as Record<string, unknown>[];
     const fileEntriesRaw = planDataArr.filter((e) => !isFrameworkEntry(e));
     const frameworkEntries = planDataArr.filter(isFrameworkEntry);
+
+    // 诊断：REDUCE 输出每个 file 的 tier 分配数（与上面 MAP 输入对比可判断是否漏 kp）
+    for (const fe of fileEntriesRaw) {
+      const kpCount = (fe.knowledge_points as unknown[] | undefined)?.length ?? 0;
+      console.log(`[REDUCE 输出] ${fe.file_name} → 分配 ${kpCount} 个知识点档位`);
+    }
 
     // REDUCE 只输出 tier+tier_rationale（id 级），在此合并回 MAP 完整知识点内容（concept/knowledge/source/section_*）
     const coveredFiles = new Set(fileEntriesRaw.map((e) => e.file_name as string));

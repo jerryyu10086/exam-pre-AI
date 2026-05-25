@@ -36,17 +36,25 @@ export async function parsePdf(buffer: Buffer): Promise<string> {
 }
 
 // 课件：一页一 chunk，字数不足时合并相邻页
+// 每个 chunk 前缀注入 [第X页] 或 [第X-Y页] marker，保留 PDF 原始页号信息
+// （chunk_index 在合并时会与 PDF 页号偏移，此 marker 是 MAP/RAG 引用页码的唯一可靠来源）
 export function chunkSlides(pages: string[]): string[] {
   const chunks: string[] = [];
   let i = 0;
   while (i < pages.length) {
+    const startPage = i + 1;
     let chunk = pages[i];
+    let lastPage = startPage;
     while (chunk.length < SLIDES_MIN_CHUNK_CHARS && i + 1 < pages.length) {
       i++;
       chunk += " " + pages[i];
+      lastPage = i + 1;
     }
     const trimmed = chunk.trim();
-    if (trimmed) chunks.push(trimmed);
+    if (trimmed) {
+      const marker = startPage === lastPage ? `[第${startPage}页]` : `[第${startPage}-${lastPage}页]`;
+      chunks.push(`${marker}\n${trimmed}`);
+    }
     i++;
   }
   return chunks;
