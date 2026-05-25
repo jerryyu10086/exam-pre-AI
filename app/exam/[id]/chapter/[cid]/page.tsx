@@ -162,14 +162,27 @@ export default function ChapterPage() {
     setCollapsedSet(new Set());
   }
 
-  const sortedPoints = useMemo(() =>
-    [...(chapter?.knowledge_points ?? [])].sort((a, b) => {
+  // 按 id 升序后再按 section_number 顺序分组（同一 section 的 id 连续，prompt 已约束）
+  const sequentialGroups = useMemo(() => {
+    const sorted = [...(chapter?.knowledge_points ?? [])].sort((a, b) => {
       const ai = parseInt((a.id ?? "kp_0").replace("kp_", ""), 10);
       const bi = parseInt((b.id ?? "kp_0").replace("kp_", ""), 10);
       return ai - bi;
-    }),
-    [chapter?.knowledge_points]
-  );
+    });
+    const indexMap = new Map<string, number>(sorted.map((kp, i) => [kp.id, i + 1]));
+    type Group = { key: string; section_number: string; section_name: string; points: KnowledgePoint[] };
+    const groups: Group[] = [];
+    for (const kp of sorted) {
+      const sn = kp.section_number ?? "";
+      const last = groups[groups.length - 1];
+      if (!last || last.section_number !== sn) {
+        groups.push({ key: sn || `__nosec_${groups.length}`, section_number: sn, section_name: kp.section_name ?? "", points: [kp] });
+      } else {
+        last.points.push(kp);
+      }
+    }
+    return { groups, indexMap };
+  }, [chapter?.knowledge_points]);
 
   const tieredGroups = useMemo(() =>
     (["必学", "补充", "拓展"] as const).map((tier) => ({
@@ -227,6 +240,13 @@ export default function ChapterPage() {
             {chapter?.display_name}
           </h1>
         </div>
+
+        {/* 章节脉络摘要（REDUCE 生成，可选） */}
+        {chapter?.chapter_summary && (
+          <div className="bg-card border border-white/5 rounded-lg p-3 mb-5">
+            <p className="text-muted text-xs leading-relaxed">{chapter.chapter_summary}</p>
+          </div>
+        )}
 
         {/* 档位图例 — 与 Page 5 完全对齐：gap-1.5 mb-5 */}
         <div className="flex flex-col gap-1.5 mb-5">
@@ -288,15 +308,26 @@ export default function ChapterPage() {
         {chapter && (
           <div className="flex flex-col gap-3 mb-8">
             {viewMode === "sequential" ? (
-              sortedPoints.map((kp, i) => (
-                <TierContent
-                  key={kp.id}
-                  point={kp}
-                  index={i + 1}
-                  collapsed={collapsedSet.has(kp.id)}
-                  onToggle={toggleCollapse}
-                  onAsk={handleAsk}
-                />
+              sequentialGroups.groups.map((g) => (
+                <div key={g.key}>
+                  {g.section_number && (
+                    <div className="text-muted text-xs font-medium mb-2">
+                      {g.section_number}{g.section_name ? `  ${g.section_name}` : ""}
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-3">
+                    {g.points.map((kp) => (
+                      <TierContent
+                        key={kp.id}
+                        point={kp}
+                        index={sequentialGroups.indexMap.get(kp.id) ?? 0}
+                        collapsed={collapsedSet.has(kp.id)}
+                        onToggle={toggleCollapse}
+                        onAsk={handleAsk}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))
             ) : (
               tieredGroups.map(({ tier, points, colorVar }) => {

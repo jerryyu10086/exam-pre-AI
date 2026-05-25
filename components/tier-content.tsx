@@ -78,6 +78,9 @@ const TierContent = memo(function TierContent({ point, index, collapsed, onToggl
             {point.source && (
               <p className="text-muted text-xs">📍 {point.source}</p>
             )}
+            {point.tier_rationale && (
+              <p className="text-muted text-xs">📌 {point.tier_rationale}</p>
+            )}
             {onAsk && (
               <button
                 onClick={() => onAsk(point.concept)}

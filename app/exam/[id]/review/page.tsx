@@ -9,7 +9,26 @@ type FileEntry = {
   display_name: string;
   order: number;
   knowledge_points: KnowledgePoint[];
+  chapter_summary?: string;
+  key_focus?: string[];
 };
+
+type OverallFramework = {
+  subject_thread?: string;
+  chapter_relations?: string;
+  recommended_order?: string[];
+};
+
+type FrameworkEntry = { __overall_framework__: OverallFramework };
+
+function isFrameworkEntry(e: unknown): e is FrameworkEntry {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "__overall_framework__" in e &&
+    !("file_name" in (e as Record<string, unknown>))
+  );
+}
 
 const CN: Record<string, number> = { 一:1,二:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9 };
 function parseCNNum(s: string): number {
@@ -39,6 +58,7 @@ const TIER_LEGEND = [
 export default function ReviewPage() {
   const params = useParams<{ id: string }>();
   const [files, setFiles] = useState<FileEntry[] | null>(null);
+  const [framework, setFramework] = useState<OverallFramework | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -47,7 +67,13 @@ export default function ReviewPage() {
       const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
         const data = JSON.parse(cached);
-        if (Array.isArray(data)) setFiles(data);
+        if (Array.isArray(data)) {
+          // 旧缓存仅含 files；新缓存末尾可能带 __overall_framework__ 条目
+          const fw = data.find(isFrameworkEntry)?.__overall_framework__ ?? null;
+          const chapters = data.filter((e: unknown): e is FileEntry => !isFrameworkEntry(e));
+          setFiles(chapters);
+          setFramework(fw);
+        }
       }
     } catch {}
 
@@ -55,9 +81,13 @@ export default function ReviewPage() {
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          const sorted = [...data].sort((a: FileEntry, b: FileEntry) => chapterNum(a) - chapterNum(b));
-          setFiles(sorted);
-          try { sessionStorage.setItem(cacheKey, JSON.stringify(sorted)); } catch {}
+          const fw = data.find(isFrameworkEntry)?.__overall_framework__ ?? null;
+          const chapters = data
+            .filter((e: unknown): e is FileEntry => !isFrameworkEntry(e))
+            .sort((a: FileEntry, b: FileEntry) => chapterNum(a) - chapterNum(b));
+          setFiles(chapters);
+          setFramework(fw);
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
         } else {
           setError("暂无复习计划，请先在「准备分析」页触发解析");
         }
@@ -93,6 +123,23 @@ export default function ReviewPage() {
             </div>
           ))}
         </div>
+
+        {/* 学科总览（V1 新增）— accent 边框突出 */}
+        {framework && (framework.subject_thread || framework.chapter_relations) && (
+          <div className="bg-card border border-accent/30 rounded-lg p-4 mb-5">
+            <p className="text-primary text-sm font-medium mb-2">📚 学科总览</p>
+            {framework.subject_thread && (
+              <p className="text-muted text-sm leading-relaxed mb-1.5">
+                <span className="text-primary">主线 · </span>{framework.subject_thread}
+              </p>
+            )}
+            {framework.chapter_relations && (
+              <p className="text-muted text-sm leading-relaxed">
+                <span className="text-primary">章节关系 · </span>{framework.chapter_relations}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* 统计行 + 全局问答入口 */}
         <div className="flex items-center justify-between mb-5">
@@ -130,6 +177,8 @@ export default function ReviewPage() {
                 order={f.order}
                 displayName={f.display_name}
                 knowledgePoints={f.knowledge_points}
+                chapterSummary={f.chapter_summary}
+                keyFocusCount={f.key_focus?.length}
               />
             ))}
           </div>

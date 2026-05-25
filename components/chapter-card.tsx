@@ -17,6 +17,8 @@ type ChapterCardProps = {
   order: number;
   displayName: string;
   knowledgePoints: KnowledgePoint[];
+  chapterSummary?: string;
+  keyFocusCount?: number;
 };
 
 export default function ChapterCard({
@@ -24,6 +26,8 @@ export default function ChapterCard({
   order,
   displayName,
   knowledgePoints,
+  chapterSummary,
+  keyFocusCount,
 }: ChapterCardProps) {
 
   // 按档位分组，只保留 concept（过滤 undefined/空值，防止旧数据或合并失败时渲染空白）
@@ -37,6 +41,10 @@ export default function ChapterCard({
       <div className="flex items-start justify-between gap-2 mb-3">
         <h2 className="text-base font-medium text-primary">{displayName}</h2>
       </div>
+
+      {chapterSummary && (
+        <p className="text-muted text-xs leading-relaxed line-clamp-2 mb-3">{chapterSummary}</p>
+      )}
 
       <div className="flex flex-col gap-2 mb-3">
         {(["必学", "补充", "拓展"] as const).map((tier) => {
@@ -52,9 +60,12 @@ export default function ChapterCard({
                   minHeight: "1rem",
                 }}
               />
-              <p className="text-muted text-sm leading-relaxed">
+              <p className="text-muted text-sm leading-relaxed flex-1">
                 {names.join(" / ")}
               </p>
+              {tier === "必学" && (keyFocusCount ?? 0) > 0 && (
+                <span className="text-accent text-xs shrink-0 mt-1">重点 {keyFocusCount}</span>
+              )}
             </div>
           );
         })}
