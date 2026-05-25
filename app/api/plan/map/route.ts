@@ -52,6 +52,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, result: null });
     }
 
+    // V1：真题不参与 REDUCE，跳过 LLM 调用；UI 仍可上传/删除/切换 has_answers
+    if (material_type === "exam") {
+      return NextResponse.json({ success: true, result: null });
+    }
+
     const fullText = rows
       .sort((a, b) => a.chunk_index - b.chunk_index)
       .map((r) => r.content)
@@ -61,6 +66,7 @@ export async function POST(request: NextRequest) {
     if (material_type === "slides") {
       prompt = buildMapSlidesPrompt(fullText);
     } else {
+      // V1 流程下走不到此分支（textbook/exam 已短路），保留兜底
       prompt = has_answers !== false
         ? buildMapExamWithAnswersPrompt(fullText)
         : buildMapExamNoAnswersPrompt(fullText);

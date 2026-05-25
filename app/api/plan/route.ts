@@ -197,12 +197,15 @@ export async function GET(request: NextRequest) {
   if (includeCache) {
     const cache = data?.maps_cache;
     // slides 条目必须有非空 knowledge_points 才算有效缓存；空的条目重新 MAP
+    // V1 升级：旧版 MAP 输出缺 section_number 字段，视为过期强制重 MAP
     const cacheFileNames = Array.isArray(cache)
       ? (cache as { file_name: string; material_type: string; data?: Record<string, unknown> }[])
           .filter((e) => {
             if (e.material_type !== "slides") return true;
-            const kps = (e.data?.knowledge_points as unknown[]) ?? [];
-            return kps.length > 0;
+            const kps = (e.data?.knowledge_points as Record<string, unknown>[] | undefined) ?? [];
+            if (kps.length === 0) return false;
+            // 任一知识点缺 section_number 即视为旧版缓存
+            return kps.every((kp) => typeof kp.section_number === "string" && kp.section_number.length > 0);
           })
           .map((e) => e.file_name)
       : [];

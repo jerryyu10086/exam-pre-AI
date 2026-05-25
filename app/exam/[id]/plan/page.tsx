@@ -19,14 +19,10 @@ async function fetchFileSummary(examId: string): Promise<FileSummary> {
   return counts;
 }
 
-async function fetchFileNames(examId: string): Promise<FileItem[]> {
-  const [slidesRes, examRes] = await Promise.all([
-    fetch(`/api/upload?exam_id=${examId}&material_type=slides`),
-    fetch(`/api/upload?exam_id=${examId}&material_type=exam`),
-  ]);
-  const slides: FileItem[] = slidesRes.ok ? await slidesRes.json() : [];
-  const exams: FileItem[] = examRes.ok ? await examRes.json() : [];
-  return [...slides, ...exams];
+// V1：只对课件跑 MAP，真题在 UI 完整保留但不参与 REDUCE，因此 MAP 进度条只算课件
+async function fetchSlidesFileNames(examId: string): Promise<FileItem[]> {
+  const res = await fetch(`/api/upload?exam_id=${examId}&material_type=slides`);
+  return res.ok ? await res.json() : [];
 }
 
 const CONTEXT_FIELDS = [
@@ -117,8 +113,8 @@ export default function PlanPage() {
     abortRef.current = controller;
 
     try {
-      // 1. 获取所有文件名（slides + exam）
-      const allFiles = await fetchFileNames(params.id);
+      // 1. 获取所有课件文件名（真题 V1 不进 MAP，不计入进度）
+      const allFiles = await fetchSlidesFileNames(params.id);
 
       // 2. 获取已缓存的文件名
       const cacheRes = await fetch(`/api/plan?exam_id=${params.id}&include_cache=true`);
