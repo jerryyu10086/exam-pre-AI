@@ -66,8 +66,8 @@ function tryParse(s: string): unknown | null {
   return null;
 }
 
-// 截断 JSON 修复：逐字符提取完整的 {...} 对象，用于 MAP 输出被截断时的兜底
-function extractCompleteObjects(text: string): unknown[] {
+// 截断 JSON 修复：逐字符提取完整的 {...} 对象，用于 MAP/REDUCE 输出被截断时的兜底
+export function extractCompleteObjects(text: string): unknown[] {
   const results: unknown[] = [];
   let i = 0;
   while (i < text.length) {
@@ -109,7 +109,19 @@ export function extractJSON(text: string): unknown {
   }
   const r = tryParse(text);
   if (r !== null) return r;
-  // 截断修复兜底：提取所有完整 {...} 对象，重建 knowledge_points 结构
+  // 截断修复兜底（REDUCE Phase 2）：Phase 2 JSON 数组被截断时，提取所有完整的文件条目对象
+  const firstBracket = text.indexOf("[");
+  if (firstBracket !== -1) {
+    const objs = extractCompleteObjects(text.slice(firstBracket));
+    const fileEntries = objs.filter(
+      (o) => typeof o === "object" && o !== null && "file_name" in (o as object)
+    );
+    if (fileEntries.length > 0) {
+      console.warn(`extractJSON: REDUCE截断修复，恢复 ${fileEntries.length} 个文件条目`);
+      return fileEntries;
+    }
+  }
+  // 截断修复兜底（MAP）：提取所有完整 {...} 对象，重建 knowledge_points 结构
   const kpStart = text.indexOf('"knowledge_points"');
   if (kpStart !== -1) {
     const objs = extractCompleteObjects(text.slice(kpStart));

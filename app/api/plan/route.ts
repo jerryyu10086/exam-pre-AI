@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
     }
 
     // REDUCE 只输出 tier 分配（id+tier），在此合并回 MAP 完整知识点内容（concept/knowledge/source）
+    const coveredFiles = new Set((planDataRaw as Record<string, unknown>[]).map((e) => e.file_name as string));
     const planData = (planDataRaw as Record<string, unknown>[]).map((fileEntry) => {
       const mapEntry = reduceInput.find(
         (e) => e.file_name === (fileEntry.file_name as string) && e.material_type === "slides"
@@ -96,6 +97,24 @@ export async function POST(request: NextRequest) {
       return { ...fileEntry, knowledge_points: mergedKps };
     });
 
+    // Phase 2 被截断时部分文件缺失 → 用全拓展/低频作为兜底补全，确保所有课件都出现在结果里
+    const missingEntries = reduceInput
+      .filter((e) => e.material_type === "slides" && !coveredFiles.has(e.file_name))
+      .map((e, idx) => {
+        const fullKps = ((e.data as Record<string, unknown>).knowledge_points ?? []) as Record<string, unknown>[];
+        return {
+          file_name: e.file_name,
+          display_name: (e.data as Record<string, unknown>).display_name ?? e.file_name.replace(/\.[^.]+$/, ""),
+          order: planData.length + idx + 1,
+          importance: "低频",
+          knowledge_points: fullKps.map((kp) => ({ ...kp, tier: "拓展" })),
+        };
+      });
+    if (missingEntries.length > 0) {
+      console.warn(`REDUCE截断兜底：补全 ${missingEntries.length} 个缺失文件（全拓展/低频）`);
+    }
+    const allPlanData = [...planData, ...missingEntries];
+
     // REDUCE 完成后按 id 将 B部分（explanation）从 maps_cache 补回
     const explanationLookup = new Map<string, Map<string, string>>();
     for (const entry of mapResults) {
@@ -108,7 +127,7 @@ export async function POST(request: NextRequest) {
       explanationLookup.set(entry.file_name, fileMap);
     }
 
-    const mergedPlanData = planData.map((fileEntry) => {
+    const mergedPlanData = allPlanData.map((fileEntry) => {
       const fileMap = explanationLookup.get(fileEntry.file_name as string);
       if (!fileMap) return fileEntry;
       const kps = ((fileEntry.knowledge_points ?? []) as Record<string, unknown>[]).map((kp) => ({
