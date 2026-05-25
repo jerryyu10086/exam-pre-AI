@@ -14,7 +14,6 @@ type FileEntry = {
   file_name: string;
   display_name: string;
   order: number;
-  importance: string;
   knowledge_points: KnowledgePoint[];
 };
 

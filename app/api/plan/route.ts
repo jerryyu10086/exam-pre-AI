@@ -100,7 +100,6 @@ export async function POST(request: NextRequest) {
           file_name: e.file_name,
           display_name: (e.data as Record<string, unknown>).display_name ?? e.file_name.replace(/\.[^.]+$/, ""),
           order: planData.length + idx + 1,
-          importance: "低频",
           knowledge_points: fullKps.map((kp) => ({ ...kp, tier: "拓展" })),
         };
       });

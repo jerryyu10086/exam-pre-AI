@@ -115,7 +115,6 @@ ${userContextSection}
 - 只输出课件条目（不输出真题条目）
 - 放在 \`\`\`json 代码块中
 - knowledge_points 每条只含 id 和 tier 两个字段，禁止输出 knowledge/concept/source 等其他内容
-- importance 取值只能是：高频 / 中频 / 低频
 - file_name 与输入中完全一致
 
 格式：
@@ -125,7 +124,6 @@ ${userContextSection}
     "file_name": "lecture_03.pdf",
     "display_name": "第三章 细胞膜结构",
     "order": 1,
-    "importance": "高频",
     "knowledge_points": [
       { "id": "kp_0", "tier": "必学" },
       { "id": "kp_1", "tier": "补充" },

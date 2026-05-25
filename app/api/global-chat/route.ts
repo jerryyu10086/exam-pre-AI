@@ -22,7 +22,6 @@ type Chapter = {
   file_name: string;
   chapter_name: string;
   chapter_order: number;
-  importance: string;
   knowledge_points: KnowledgePoint[];
 };
 
@@ -152,7 +151,7 @@ export async function POST(request: NextRequest) {
     const contextText = selected
       .map(
         (x) =>
-          `## ${x.ch.chapter_name}（${x.ch.importance}）\n${JSON.stringify(
+          `## ${x.ch.chapter_name}\n${JSON.stringify(
             x.ch.knowledge_points,
             null,
             2

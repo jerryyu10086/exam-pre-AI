@@ -8,7 +8,6 @@ type FileEntry = {
   file_name: string;
   display_name: string;
   order: number;
-  importance: "高频" | "中频" | "低频";
   knowledge_points: KnowledgePoint[];
 };
 
@@ -52,14 +51,7 @@ export default function ReviewPage() {
       .catch(() => setError("加载失败，请刷新重试"));
   }, [params.id]);
 
-  const stats = files
-    ? {
-        total: files.length,
-        高频: files.filter((f) => f.importance === "高频").length,
-        中频: files.filter((f) => f.importance === "中频").length,
-        低频: files.filter((f) => f.importance === "低频").length,
-      }
-    : null;
+  const totalCount = files ? files.length : null;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
@@ -90,10 +82,8 @@ export default function ReviewPage() {
 
         {/* 统计行 + 全局问答入口 */}
         <div className="flex items-center justify-between mb-5">
-          {stats ? (
-            <p className="text-muted text-sm">
-              📊 共 {stats.total} 份课件，高频 {stats.高频} / 中频 {stats.中频} / 低频 {stats.低频}
-            </p>
+          {totalCount !== null ? (
+            <p className="text-muted text-sm">📊 共 {totalCount} 份课件</p>
           ) : (
             <span />
           )}
@@ -125,7 +115,6 @@ export default function ReviewPage() {
                 examId={params.id}
                 order={f.order}
                 displayName={f.display_name}
-                importance={f.importance}
                 knowledgePoints={f.knowledge_points}
               />
             ))}
