@@ -66,17 +66,41 @@ export async function callDeepSeek(
   throw lastErr;
 }
 
-// 修复 JSON 字符串中非法的反斜杠转义（如 LaTeX \alpha \sum 等）
+// 修复 JSON 字符串中非法的反斜杠转义（如 LaTeX \alpha \sum 等）。
+// 用逐字符扫描而非正则 lookahead，避免破坏合法 \\x 序列：
+// 旧版正则 /\\(?!["\\/bfnrtu])/g 在 `\\lambda` 上会错误加倍第二个 `\`
+// （位置 0 的 `\` 后面是 `\` 被跳过，位置 1 的 `\` 后面是 `l` 被加倍 → `\\\la` 非法）
 function fixEscapes(s: string): string {
-  return s.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+  let result = "";
+  let i = 0;
+  while (i < s.length) {
+    if (s[i] === "\\" && i + 1 < s.length) {
+      const next = s[i + 1];
+      if (next === '"' || next === "\\" || next === "/" || next === "b" || next === "f" || next === "n" || next === "r" || next === "t" || next === "u") {
+        // 合法 JSON 转义 → 原样保留这两个字符
+        result += s[i] + next;
+        i += 2;
+      } else {
+        // 非法转义如 \sigma → 加倍为 \\sigma
+        result += "\\\\" + next;
+        i += 2;
+      }
+    } else {
+      result += s[i];
+      i++;
+    }
+  }
+  return result;
 }
 
 // 多策略尝试解析，失败返回 null
 function tryParse(s: string): unknown | null {
   const cleaned = s.trim();
-  // 策略1：修复非法转义
+  // 策略1：直接 parse（LLM 输出已是合法 JSON 时必须先试，避免被 fixEscapes 误伤）
+  try { return JSON.parse(cleaned); } catch {}
+  // 策略2：修复非法转义后再 parse（LLM 偷懒只写一个 \ 时）
   try { return JSON.parse(fixEscapes(cleaned)); } catch {}
-  // 策略2：去掉控制字符再修复转义
+  // 策略3：去掉控制字符再修复转义
   try { return JSON.parse(fixEscapes(cleaned.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ""))); } catch {}
   return null;
 }
