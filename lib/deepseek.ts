@@ -53,7 +53,9 @@ export async function callDeepSeek(
     } catch (err) {
       lastErr = err;
       const msg = err instanceof Error ? err.message : String(err);
-      const isRetryable = msg.includes("ECONNRESET") || msg.includes("fetch failed") || msg.includes("ETIMEDOUT");
+      const causeMsg = err instanceof Error && err.cause instanceof Error ? err.cause.message : "";
+      const combined = msg + " " + causeMsg;
+      const isRetryable = combined.includes("ECONNRESET") || combined.includes("fetch failed") || combined.includes("ETIMEDOUT") || combined.includes("terminated");
       if (!isRetryable || i === _retries) break;
       console.warn(`DeepSeek 请求失败，第 ${i + 1} 次重试... (${msg})`);
       await new Promise((r) => setTimeout(r, 3000 * (i + 1)));
