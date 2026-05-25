@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    chunks = chunks.filter((c) => c.trim().length > 0);
+    // PostgreSQL text 不接受 null byte，pdf-parse 对部分 PDF 会产生此字节
+    chunks = chunks.map((c) => c.replace(/\x00/g, "")).filter((c) => c.trim().length > 0);
     if (chunks.length === 0) {
       return NextResponse.json({ error: "文件内容为空" }, { status: 400 });
     }
