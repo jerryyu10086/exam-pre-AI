@@ -129,7 +129,7 @@ export default function PlanPage() {
       const filesToMap = allFiles.filter((f) => !cachedNames.has(f.name));
 
       // 4. 批并行 MAP：每批最多 3 个并行，批结束后统一写库
-      const BATCH_SIZE = 3;
+      const BATCH_SIZE = 100;
       let completed = 0;
       const total = filesToMap.length;
 
