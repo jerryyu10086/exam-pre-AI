@@ -11,6 +11,25 @@ type FileEntry = {
   knowledge_points: KnowledgePoint[];
 };
 
+const CN: Record<string, number> = { 一:1,二:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9 };
+function parseCNNum(s: string): number {
+  if (!s) return 0;
+  // 十, 十一…十九
+  if (s[0] === "十") return 10 + (CN[s[1]] ?? 0);
+  // 二十, 三十…, 二十一…
+  if (s[1] === "十") return (CN[s[0]] ?? 0) * 10 + (CN[s[2]] ?? 0);
+  return CN[s[0]] ?? 0;
+}
+function chapterNum(f: { display_name: string; order: number }): number {
+  // 先尝试阿拉伯数字
+  const arabic = f.display_name.match(/第\s*(\d+)\s*章/);
+  if (arabic) return parseInt(arabic[1], 10);
+  // 再尝试中文数字
+  const chinese = f.display_name.match(/第\s*([一二三四五六七八九十百]+)\s*章/);
+  if (chinese) return parseCNNum(chinese[1]);
+  return f.order + 10000;
+}
+
 const TIER_LEGEND = [
   { label: "必学", desc: "硬核重点，不学不行", colorVar: "var(--color-tier-must)" },
   { label: "补充", desc: "锦上添花，加深理解", colorVar: "var(--color-tier-supplement)" },
@@ -36,11 +55,6 @@ export default function ReviewPage() {
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          // 优先按 display_name 里的章节号（第N章）排序，无章节号则按 order 兜底
-          const chapterNum = (f: FileEntry) => {
-            const m = f.display_name.match(/第\s*(\d+)\s*章/);
-            return m ? parseInt(m[1], 10) : f.order + 10000;
-          };
           const sorted = [...data].sort((a: FileEntry, b: FileEntry) => chapterNum(a) - chapterNum(b));
           setFiles(sorted);
           try { sessionStorage.setItem(cacheKey, JSON.stringify(sorted)); } catch {}
