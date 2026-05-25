@@ -145,16 +145,34 @@ tier_rationale 为可选字段：若有清晰的"为什么必学/补充"证据�
     "file_name": "lecture_03.pdf",
     "display_name": "第三章 细胞膜结构",
     "order": 1,
+    "chapter_summary": "本章围绕细胞膜的流动镶嵌模型展开，回答"为什么细胞需要选择性通透"，引入膜蛋白分类与功能分析框架。",
+    "key_focus": ["kp_0", "kp_5"],
     "knowledge_points": [
-      { "id": "kp_0", "tier": "必学" },
+      { "id": "kp_0", "tier": "必学", "tier_rationale": "第5章物质代谢推导的基础概念" },
       { "id": "kp_1", "tier": "补充" },
       { "id": "kp_2", "tier": "拓展" }
     ]
+  },
+  {
+    "__overall_framework__": {
+      "subject_thread": "本学科以...为主线",
+      "chapter_relations": "第1章是基础，第2-3章并列展开两个分支，第4章综合应用",
+      "recommended_order": ["lecture_01.pdf", "lecture_03.pdf", "lecture_02.pdf", "lecture_04.pdf"]
+    }
   }
 ]
 \`\`\`
 
-━━ 材料摘要 ━━
+━━ 硬性约束 ━━
 
-${allMapsJson}`;
+- 课件每份必须出现一条对应的 file_name 条目（与输入完全一致）
+- order 从 1 开始，1 = 最重要，按综合重要性 + 学习顺序排序
+- chapter_summary 必填，1-3 句话
+- key_focus 1-5 个 id，挑章内最关键的（必学中的最核心者）
+- knowledge_points 每条只含 id / tier / tier_rationale（tier_rationale 可省）
+- 数组末尾必须追加一个 {"__overall_framework__": {...}} 条目（唯一），不要散落在中间或缺失
+
+━━ 课件结构化摘要 ━━
+
+${slidesMapsJson}`;
 }

@@ -124,8 +124,23 @@ export async function POST(request: NextRequest) {
       .map((c) => `[来源: ${c.file_name}]\n${c.content}`)
       .join("\n\n---\n\n");
 
-    const systemPrompt = `你是课件答疑助手，基于以下检索内容和课件知识库回答问题。
+    // 章节脉络上下文：REDUCE 输出的 chapter_summary 与 key_focus 概念名
+    const fileEntryRec = fileEntry as Record<string, unknown> | null;
+    const chapterSummary = (fileEntryRec?.chapter_summary as string | undefined) ?? "";
+    const keyFocusIds = (fileEntryRec?.key_focus as string[] | undefined) ?? [];
+    const kpsArr = (fileEntryRec?.knowledge_points as Record<string, unknown>[] | undefined) ?? [];
+    const keyFocusNames = keyFocusIds
+      .map((id) => kpsArr.find((kp) => kp.id === id)?.concept as string | undefined)
+      .filter((n): n is string => typeof n === "string" && n.length > 0);
+    const chapterCtxBlock =
+      chapterSummary || keyFocusNames.length > 0
+        ? `\n本章脉络：${chapterSummary || "（未生成）"}${
+            keyFocusNames.length > 0 ? `\n本章重点：${keyFocusNames.join("、")}` : ""
+          }\n`
+        : "";
 
+    const systemPrompt = `你是课件答疑助手，基于以下检索内容和课件知识库回答问题。
+${chapterCtxBlock}
 规则：
 1. 检索内容不足时，明确告知"该问题在课件中只有部分覆盖"
 2. 引用时标注来源文件名或章节位置

@@ -113,7 +113,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const chapters: Chapter[] = Array.isArray(planRow.data) ? planRow.data : [];
+    // V1：plans.data 末尾的 __overall_framework__ 是元数据条目，不参与章节路由
+    const chapters: Chapter[] = (Array.isArray(planRow.data) ? planRow.data : [])
+      .filter((e: Record<string, unknown>) => "file_name" in e && Array.isArray(e.knowledge_points));
     if (chapters.length === 0) {
       return NextResponse.json({ error: "复习计划为空" }, { status: 400 });
     }

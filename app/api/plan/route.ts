@@ -71,26 +71,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "分析结果解析失败，请重试" }, { status: 500 });
     }
 
-    // REDUCE 只输出 tier 分配（id+tier），在此合并回 MAP 完整知识点内容（concept/knowledge/source）
-    const coveredFiles = new Set((planDataRaw as Record<string, unknown>[]).map((e) => e.file_name as string));
-    const planData = (planDataRaw as Record<string, unknown>[]).map((fileEntry) => {
+    // REDUCE 末尾会带 __overall_framework__ 元素（无 file_name），先分离出来留作 plan 末尾
+    const isFrameworkEntry = (e: Record<string, unknown>): boolean =>
+      "__overall_framework__" in e && !("file_name" in e);
+    const planDataArr = planDataRaw as Record<string, unknown>[];
+    const fileEntriesRaw = planDataArr.filter((e) => !isFrameworkEntry(e));
+    const frameworkEntries = planDataArr.filter(isFrameworkEntry);
+
+    // REDUCE 只输出 tier+tier_rationale（id 级），在此合并回 MAP 完整知识点内容（concept/knowledge/source/section_*）
+    const coveredFiles = new Set(fileEntriesRaw.map((e) => e.file_name as string));
+    const planData = fileEntriesRaw.map((fileEntry) => {
       const mapEntry = reduceInput.find(
         (e) => e.file_name === (fileEntry.file_name as string) && e.material_type === "slides"
       );
       if (!mapEntry) return fileEntry;
 
       const fullKps = ((mapEntry.data as Record<string, unknown>).knowledge_points ?? []) as Record<string, unknown>[];
-      const tierMap = new Map<string, string>();
+      const tierMap = new Map<string, { tier: string; tier_rationale?: string }>();
       for (const kp of ((fileEntry.knowledge_points ?? []) as Record<string, unknown>[])) {
-        if (kp.id) tierMap.set(kp.id as string, kp.tier as string);
+        if (kp.id) {
+          tierMap.set(kp.id as string, {
+            tier: (kp.tier as string) ?? "拓展",
+            tier_rationale: kp.tier_rationale as string | undefined,
+          });
+        }
       }
 
-      const mergedKps = fullKps.map((kp) => ({
-        ...kp,
-        tier: tierMap.get(kp.id as string) ?? "拓展",
-      }));
+      const mergedKps = fullKps.map((kp) => {
+        const info = tierMap.get(kp.id as string);
+        return {
+          ...kp,
+          tier: info?.tier ?? "拓展",
+          ...(info?.tier_rationale ? { tier_rationale: info.tier_rationale } : {}),
+        };
+      });
 
-      return { ...fileEntry, knowledge_points: mergedKps };
+      // 新字段兜底：REDUCE 偶尔会漏 chapter_summary / key_focus，给空值默认值
+      return {
+        ...fileEntry,
+        chapter_summary: (fileEntry.chapter_summary as string) ?? "",
+        key_focus: Array.isArray(fileEntry.key_focus) ? fileEntry.key_focus : [],
+        knowledge_points: mergedKps,
+      };
     });
 
     // Phase 2 被截断时部分文件缺失 → 用全拓展/低频作为兜底补全，确保所有课件都出现在结果里
@@ -102,13 +124,16 @@ export async function POST(request: NextRequest) {
           file_name: e.file_name,
           display_name: (e.data as Record<string, unknown>).display_name ?? e.file_name.replace(/\.[^.]+$/, ""),
           order: planData.length + idx + 1,
+          chapter_summary: "",
+          key_focus: [] as string[],
           knowledge_points: fullKps.map((kp) => ({ ...kp, tier: "拓展" })),
         };
       });
     if (missingEntries.length > 0) {
       console.warn(`REDUCE截断兜底：补全 ${missingEntries.length} 个缺失文件（全拓展/低频）`);
     }
-    const allPlanData = [...planData, ...missingEntries];
+    // 最终顺序：文件条目 + 兜底条目 + framework 末尾元素（数组末尾特殊条目，UI 渲染时 filter）
+    const allPlanData = [...planData, ...missingEntries, ...frameworkEntries];
 
     // REDUCE 完成后按 id 将 B部分（explanation）从 maps_cache 补回
     const explanationLookup = new Map<string, Map<string, string>>();
