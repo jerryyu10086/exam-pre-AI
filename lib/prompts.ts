@@ -139,4 +139,3 @@ ${userContextSection}
 
 ${allMapsJson}`;
 }
-}
