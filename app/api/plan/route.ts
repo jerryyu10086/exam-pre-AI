@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { callDeepSeek, extractJSON } from "@/lib/deepseek";
-import { buildReducePhase1Prompt, buildReducePhase2Prompt } from "@/lib/prompts";
+import { buildReducePrompt } from "@/lib/prompts";
 
 export const maxDuration = 55;
 
@@ -60,14 +60,8 @@ export async function POST(request: NextRequest) {
       return { ...entry, data: { ...data, knowledge_points: kps } };
     });
 
-    const phase1Prompt = buildReducePhase1Prompt(JSON.stringify(reduceInput, null, 2), user_context);
-    const phase1Raw = await callDeepSeek([{ role: "user", content: phase1Prompt }]);
-
-    const phase2Prompt = buildReducePhase2Prompt();
     const reduceRaw = await callDeepSeek([
-      { role: "user", content: phase1Prompt },
-      { role: "assistant", content: phase1Raw },
-      { role: "user", content: phase2Prompt },
+      { role: "user", content: buildReducePrompt(JSON.stringify(reduceInput, null, 2), user_context) },
     ]);
     const planDataRaw = extractJSON(reduceRaw);
     if (!Array.isArray(planDataRaw) || planDataRaw.length === 0) {
