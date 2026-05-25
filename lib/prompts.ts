@@ -18,7 +18,6 @@ export function buildMapSlidesPrompt(fileText: string): string {
 - source：具体页码，如"第5页"
 - explanation：【B部分】帮助学生真正理解，不重复 knowledge 内容
 
-\`\`\`json
 {
   "knowledge_points": [
     {
@@ -30,7 +29,6 @@ export function buildMapSlidesPrompt(fileText: string): string {
     }
   ]
 }
-\`\`\`
 
 课件内容：
 ${fileText}`;

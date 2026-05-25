@@ -6,7 +6,7 @@ type Message = { role: "system" | "user" | "assistant"; content: string };
 
 export async function callDeepSeek(
   messages: Message[],
-  options?: { max_tokens?: number; model?: string; thinking?: boolean },
+  options?: { max_tokens?: number; model?: string; thinking?: boolean; json_mode?: boolean },
   _retries = 2
 ): Promise<string> {
   const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -19,10 +19,12 @@ export async function callDeepSeek(
       ...(options?.max_tokens ? { max_tokens: options.max_tokens } : {}),
     };
     if (options?.thinking) {
-      // 思考模式不支持 temperature 等采样参数
       body.thinking = { type: "enabled" };
     } else {
       body.temperature = 0.3;
+    }
+    if (options?.json_mode) {
+      body.response_format = { type: "json_object" };
     }
 
     const response = await fetch(DEEPSEEK_URL, {
