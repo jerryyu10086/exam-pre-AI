@@ -11,18 +11,24 @@ import {
 export const maxDuration = 55;
 
 type KnowledgePoint = {
+  id: string;
   tier: string;
-  name: string;
-  explanation: string;
-  examples?: string[];
+  concept: string;
+  knowledge?: string;
   source?: string;
+  explanation?: string;
+  section_number?: string;
+  section_name?: string;
+  tier_rationale?: string;
 };
 
 type Chapter = {
   file_name: string;
-  chapter_name: string;
-  chapter_order: number;
+  display_name: string;
+  order: number;
   knowledge_points: KnowledgePoint[];
+  chapter_summary?: string;
+  key_focus?: string[];
 };
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -115,7 +121,7 @@ export async function POST(request: NextRequest) {
     // 2. Agent 路由：embedding 问题 + 各章摘要，取 top-3
     const chapterSummaries = chapters.map(
       (ch) =>
-        `${ch.chapter_name}：${ch.knowledge_points.map((kp) => kp.name).join("、")}`
+        `${ch.display_name}：${ch.knowledge_points.map((kp) => kp.concept).join("、")}`
     );
 
     const allEmbeddings = await embedBatch([message.trim(), ...chapterSummaries]);
@@ -132,7 +138,7 @@ export async function POST(request: NextRequest) {
     const isFallback = aboveThreshold.length === 0;
     const selected = (isFallback ? scored : aboveThreshold).slice(0, GLOBAL_QA_TOP_CHAPTERS);
 
-    const loadedChapterNames = selected.map((x) => x.ch.chapter_name);
+    const loadedChapterNames = selected.map((x) => x.ch.display_name);
     const selectedFileNames = selected.map((x) => x.ch.file_name).filter(Boolean);
 
     // 3. RAG：只搜命中章节对应文件的 chunks（复用已有 questionEmbedding）
@@ -151,7 +157,7 @@ export async function POST(request: NextRequest) {
     const contextText = selected
       .map(
         (x) =>
-          `## ${x.ch.chapter_name}\n${JSON.stringify(
+          `## ${x.ch.display_name}\n${JSON.stringify(
             x.ch.knowledge_points,
             null,
             2

@@ -15,6 +15,8 @@ type FileEntry = {
   display_name: string;
   order: number;
   knowledge_points: KnowledgePoint[];
+  chapter_summary?: string;   // REDUCE 生成的章节脉络一句话
+  key_focus?: string[];       // 本章最重要的知识点 id 列表
 };
 
 const TIER_LEGEND = [

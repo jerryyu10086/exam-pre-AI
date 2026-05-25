@@ -19,6 +19,9 @@ export type KnowledgePoint = {
   knowledge: string;
   source?: string;
   explanation?: string;  // B部分，帮助理解
+  section_number?: string;  // 所属章节编号，如 "1" 或 "2.1"
+  section_name?: string;    // 章节名称
+  tier_rationale?: string;  // REDUCE 给出的档位判断理由，可选
 };
 
 type TierContentProps = {
