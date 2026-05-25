@@ -85,7 +85,7 @@ export function buildReducePrompt(allMapsJson: string, userContext?: string): st
     ? `\n用户补充信息（作为优先级判断的重要参考）：\n${userContext.trim()}\n`
     : "";
 
-  return `你是备考策略专家。以下是该考试所有材料的完整摘要（课件 + 真题，均未经重要性过滤）。
+  return `你是备考策略专家。以下是该考试所有材料的完整摘要（课件 + 真题，均未经重要性过滤）。请分析后输出每份课件的知识点档位与排序。
 ${userContextSection}
 ━━ 档位判断标准 ━━
 
@@ -106,18 +106,14 @@ ${userContextSection}
   - 补充：课件正常介绍但非核心
   - 拓展：课件一带而过，或属于背景/历史脉络
 
-━━ 请按以下步骤完成分析，最后输出 JSON ━━
+━━ 输出要求 ━━
 
-第一步：列出所有真题摘要（material_type="exam"）中明确考过的主题，每条注明信号强度（有答案/无答案）。若无真题，写"无真题，跳过"。
-第二步：逐份课件（material_type="slides"）检查，标出哪些知识点（用 id 引用）与第一步主题直接对应（必学候选），哪些间接相关（补充候选），哪些未被真题覆盖（拓展候选）。
-第三步：结合用户补充信息调整档位，并按综合重要性对所有课件排序（order 从 1 开始，1 = 最重要），说明排序理由。
-第四步：输出最终 JSON，要求：
+直接输出 JSON，放在 \`\`\`json 代码块中，要求：
 - 只输出课件条目（不输出真题条目）
-- 放在 \`\`\`json 代码块中
 - knowledge_points 每条只含 id 和 tier 两个字段，禁止输出 knowledge/concept/source 等其他内容
+- order 从 1 开始，1 = 最重要，按综合重要性排序
 - file_name 与输入中完全一致
 
-格式：
 \`\`\`json
 [
   {

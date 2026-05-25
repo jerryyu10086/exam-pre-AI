@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { callDeepSeek, extractJSON } from "@/lib/deepseek";
 import { buildReducePrompt } from "@/lib/prompts";
+import { DEEPSEEK_REDUCE_MODEL } from "@/lib/config";
 
 export const maxDuration = 55;
 
@@ -60,9 +61,10 @@ export async function POST(request: NextRequest) {
       return { ...entry, data: { ...data, knowledge_points: kps } };
     });
 
-    const reduceRaw = await callDeepSeek([
-      { role: "user", content: buildReducePrompt(JSON.stringify(reduceInput, null, 2), user_context) },
-    ]);
+    const reduceRaw = await callDeepSeek(
+      [{ role: "user", content: buildReducePrompt(JSON.stringify(reduceInput, null, 2), user_context) }],
+      { model: DEEPSEEK_REDUCE_MODEL, thinking: true },
+    );
     const planDataRaw = extractJSON(reduceRaw);
     if (!Array.isArray(planDataRaw) || planDataRaw.length === 0) {
       console.error("REDUCE 结果不是数组，末尾500字符：", reduceRaw.slice(-500));

@@ -4,23 +4,34 @@ const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 
 type Message = { role: "system" | "user" | "assistant"; content: string };
 
-export async function callDeepSeek(messages: Message[], options?: { max_tokens?: number }, _retries = 2): Promise<string> {
+export async function callDeepSeek(
+  messages: Message[],
+  options?: { max_tokens?: number; model?: string; thinking?: boolean },
+  _retries = 2
+): Promise<string> {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) throw new Error("DEEPSEEK_API_KEY 未配置");
 
   const attempt = async (): Promise<string> => {
+    const body: Record<string, unknown> = {
+      model: options?.model ?? DEEPSEEK_MODEL,
+      messages,
+      ...(options?.max_tokens ? { max_tokens: options.max_tokens } : {}),
+    };
+    if (options?.thinking) {
+      // 思考模式不支持 temperature 等采样参数
+      body.thinking = { type: "enabled" };
+    } else {
+      body.temperature = 0.3;
+    }
+
     const response = await fetch(DEEPSEEK_URL, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
-        messages,
-        temperature: 0.3,
-        ...(options?.max_tokens ? { max_tokens: options.max_tokens } : {}),
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
