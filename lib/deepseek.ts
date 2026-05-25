@@ -84,27 +84,44 @@ function tryParse(s: string): unknown | null {
 // 截断 JSON 修复：逐字符提取完整的 {...} 对象，用于 MAP/REDUCE 输出被截断时的兜底
 export function extractCompleteObjects(text: string): unknown[] {
   const results: unknown[] = [];
+  let attempts = 0;
+  let failures = 0;
   let i = 0;
   while (i < text.length) {
     if (text[i] !== "{") { i++; continue; }
-    let depth = 0, inStr = false, esc = false, start = i;
-    for (; i < text.length; i++) {
-      const c = text[i];
+    const start = i;
+    let depth = 0, inStr = false, esc = false;
+    let closedAt = -1;
+    // 内层用 j，避免破坏外层 i 的恢复能力
+    for (let j = i; j < text.length; j++) {
+      const c = text[j];
       if (esc) { esc = false; continue; }
       if (c === "\\") { esc = true; continue; }
       if (c === '"') { inStr = !inStr; continue; }
       if (inStr) continue;
       if (c === "{") depth++;
       else if (c === "}") {
-        if (--depth === 0) {
-          const parsed = tryParse(text.slice(start, i + 1));
-          if (parsed !== null) results.push(parsed);
-          i++;
-          break;
-        }
+        if (--depth === 0) { closedAt = j; break; }
       }
     }
-    if (depth > 0) break; // 未闭合对象，截断点，停止
+    if (closedAt === -1) {
+      // 未闭合 → 极可能是某个字符串里有未转义的 "，导致 inStr 状态错乱吞掉了所有 }
+      // 跳到下一个 { 重试（而不是整体 break，避免丢失后面所有对象）
+      i = start + 1;
+      continue;
+    }
+    attempts++;
+    const parsed = tryParse(text.slice(start, closedAt + 1));
+    if (parsed !== null) {
+      results.push(parsed);
+      i = closedAt + 1; // 成功，跳过整个对象
+    } else {
+      failures++;
+      i = start + 1; // 单对象 parse 失败，从下一个 { 重试
+    }
+  }
+  if (failures > 0 || attempts > results.length) {
+    console.warn(`extractCompleteObjects: ${attempts} 个候选对象，${results.length} 成功，${failures} 解析失败`);
   }
   return results;
 }

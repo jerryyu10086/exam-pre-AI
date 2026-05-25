@@ -82,6 +82,21 @@ export async function POST(request: NextRequest) {
     const mapJson = extractJSON(raw) as Record<string, unknown>;
     const kpCount = (mapJson.knowledge_points as unknown[] | undefined)?.length ?? 0;
     console.log(`[MAP ${file_name}] 输入${fullText.length}字符 → 输出${raw.length}字符 ${raw.trim().endsWith("}") ? "完整" : "可能截断"} → 提取${kpCount}个知识点`);
+    // 异常偏少时把完整 raw 写到 tmp/map-debug-*.json 便于定位 JSON 破坏点
+    if (kpCount > 0 && kpCount < 5) {
+      try {
+        const fs = await import("fs/promises");
+        const path = await import("path");
+        const dir = path.join(process.cwd(), "tmp");
+        await fs.mkdir(dir, { recursive: true });
+        const safeName = file_name.replace(/[^\w一-龥.-]/g, "_");
+        const filePath = path.join(dir, `map-debug-${Date.now()}-${safeName}.txt`);
+        await fs.writeFile(filePath, raw, "utf-8");
+        console.warn(`[MAP DEBUG] ${file_name} 知识点偏少（${kpCount}），完整 raw 已写入 ${filePath}`);
+      } catch (e) {
+        console.warn(`[MAP DEBUG] 写文件失败：${e instanceof Error ? e.message : e}`);
+      }
+    }
     const result: MapEntry = { file_name, material_type, data: mapJson };
 
     return NextResponse.json({ success: true, result });

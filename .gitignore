@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# MAP debug dump 输出
+/tmp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
