@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         : buildMapExamNoAnswersPrompt(fullText);
     }
 
-    const raw = await callDeepSeek([{ role: "user", content: prompt }]);
+    const raw = await callDeepSeek([{ role: "user", content: prompt }], { max_tokens: 32768 });
     const mapJson = extractJSON(raw) as Record<string, unknown>;
     const result: MapEntry = { file_name, material_type, data: mapJson };
 
