@@ -1,5 +1,5 @@
 // 模型
-export const DEEPSEEK_MODEL = "deepseek-chat";
+export const DEEPSEEK_MODEL = "deepseek-v4-flash";
 export const DEEPSEEK_REDUCE_MODEL = "deepseek-v4-pro"; // 思考模式，用于 REDUCE
 export const EMBEDDING_MODEL = "embedding-3"; // 智谱
 export const EMBEDDING_DIMENSIONS = 2048;
