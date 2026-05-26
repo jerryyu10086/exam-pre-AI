@@ -49,12 +49,12 @@ const TierContent = memo(function TierContent({ point, index, collapsed, onToggl
         <div className="flex items-start justify-between gap-2">
           <span className="text-primary text-sm font-medium leading-snug">
             <span className="text-muted mr-1.5">{index}.</span>
-            <span
-              className={isKeyFocus ? "underline underline-offset-2" : ""}
-              style={isKeyFocus ? { textDecorationColor: "var(--color-accent)" } : undefined}
-            >
-              {point.concept}
-            </span>
+            {point.concept}
+            {isKeyFocus && (
+              <span className="ml-1.5 inline-block align-middle bg-accent/15 text-accent text-xs px-1.5 py-0.5 rounded leading-none">
+                重点
+              </span>
+            )}
           </span>
           <button
             onClick={() => onToggle(point.id)}

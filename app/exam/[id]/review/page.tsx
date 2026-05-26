@@ -8,7 +8,7 @@ type FileEntry = {
   file_name: string;
   display_name: string;
   order: number;
-  knowledge_points: KnowledgePoint[];
+  knowledge_points: (KnowledgePoint & { id?: string })[];
   chapter_summary?: string;
   key_focus?: string[];
 };
@@ -179,6 +179,11 @@ export default function ReviewPage() {
                 knowledgePoints={f.knowledge_points}
                 chapterSummary={f.chapter_summary}
                 keyFocusCount={f.key_focus?.length}
+                keyFocusConcepts={new Set(
+                  f.knowledge_points
+                    .filter((kp) => f.key_focus?.includes(kp.id ?? ""))
+                    .map((kp) => kp.concept)
+                )}
               />
             ))}
           </div>

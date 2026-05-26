@@ -19,6 +19,7 @@ type ChapterCardProps = {
   knowledgePoints: KnowledgePoint[];
   chapterSummary?: string;
   keyFocusCount?: number;
+  keyFocusConcepts?: Set<string>;
 };
 
 export default function ChapterCard({
@@ -28,6 +29,7 @@ export default function ChapterCard({
   knowledgePoints,
   chapterSummary,
   keyFocusCount,
+  keyFocusConcepts,
 }: ChapterCardProps) {
 
   // 按档位分组，只保留 concept（过滤 undefined/空值，防止旧数据或合并失败时渲染空白）
@@ -61,7 +63,17 @@ export default function ChapterCard({
                 }}
               />
               <p className="text-muted text-sm leading-relaxed flex-1">
-                {names.join(" / ")}
+                {names.map((name, i) => (
+                  <span key={i}>
+                    {i > 0 && " / "}
+                    {name}
+                    {keyFocusConcepts?.has(name) && (
+                      <span className="ml-1 inline-block align-middle bg-accent/15 text-accent text-xs px-1.5 py-0.5 rounded leading-none">
+                        重点
+                      </span>
+                    )}
+                  </span>
+                ))}
               </p>
               {tier === "必学" && (keyFocusCount ?? 0) > 0 && (
                 <span className="text-accent text-xs shrink-0 mt-1">（{keyFocusCount}个重点）</span>
