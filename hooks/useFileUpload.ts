@@ -92,6 +92,14 @@ export function useFileUpload(examId: string, materialType: string) {
     });
   }
 
+  function toggleSelectAll() {
+    if (selected.size === uploadedFiles.length && uploadedFiles.length > 0) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(uploadedFiles.map((f) => f.name)));
+    }
+  }
+
   function toggleEditMode() {
     setEditMode((prev) => !prev);
     setSelected(new Set());
@@ -122,6 +130,6 @@ export function useFileUpload(examId: string, materialType: string) {
   return {
     pendingFiles, status, message, addFiles, removeFile, togglePendingHasAnswers, saveToKnowledgeBase,
     uploadedFiles, editMode, selected, deleting,
-    loadUploadedFiles, toggleSelect, toggleEditMode, deleteFiles,
+    loadUploadedFiles, toggleSelect, toggleSelectAll, toggleEditMode, deleteFiles,
   };
 }

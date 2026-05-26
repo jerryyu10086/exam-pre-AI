@@ -31,7 +31,7 @@ export default function UploadPage() {
   const {
     pendingFiles, status, message, addFiles, removeFile, togglePendingHasAnswers, saveToKnowledgeBase,
     uploadedFiles, editMode, selected, deleting,
-    loadUploadedFiles, toggleSelect, toggleEditMode, deleteFiles,
+    loadUploadedFiles, toggleSelect, toggleSelectAll, toggleEditMode, deleteFiles,
   } = useFileUpload(params.id, params.type);
 
   const isExam = params.type === "exam";
@@ -88,12 +88,22 @@ export default function UploadPage() {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <p className="text-muted text-xs">已在知识库</p>
-              <button
-                onClick={toggleEditMode}
-                className="text-sm text-primary/70 border border-white/10 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/20 transition-colors"
-              >
-                {editMode ? "完成" : "编辑"}
-              </button>
+              <div className="flex items-center gap-2">
+                {editMode && (
+                  <button
+                    onClick={toggleSelectAll}
+                    className="text-sm text-primary/70 border border-white/10 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/20 transition-colors"
+                  >
+                    {selected.size === uploadedFiles.length ? "取消全选" : "全选"}
+                  </button>
+                )}
+                <button
+                  onClick={toggleEditMode}
+                  className="text-sm text-primary/70 border border-white/10 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/20 transition-colors"
+                >
+                  {editMode ? "完成" : "编辑"}
+                </button>
+              </div>
             </div>
             <div className="flex flex-col gap-2">
               {uploadedFiles.map((file) => (
