@@ -246,13 +246,6 @@ export default function ChapterPage() {
           </h1>
         </div>
 
-        {/* 章节脉络摘要（REDUCE 生成，可选） */}
-        {chapter?.chapter_summary && (
-          <div className="bg-card border border-white/5 rounded-lg p-3 mb-5">
-            <p className="text-muted text-xs leading-relaxed">{chapter.chapter_summary}</p>
-          </div>
-        )}
-
         {/* 档位图例 — 与 Page 5 完全对齐：gap-1.5 mb-5 */}
         <div className="flex flex-col gap-1.5 mb-5">
           {TIER_LEGEND.map(({ label, desc, colorVar }) => (
@@ -268,6 +261,13 @@ export default function ChapterPage() {
             </div>
           ))}
         </div>
+
+        {/* 章节脉络摘要（REDUCE 生成，可选） */}
+        {chapter?.chapter_summary && (
+          <div className="bg-card border border-white/5 rounded-lg p-4 mb-5">
+            <p className="text-muted text-sm leading-relaxed">{chapter.chapter_summary}</p>
+          </div>
+        )}
 
         {/* 视图切换 + 折叠控制 */}
         <div className="flex items-center gap-2 flex-wrap mb-5">
