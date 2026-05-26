@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 type UploadStatus = "idle" | "uploading" | "success" | "error";
 
@@ -24,6 +24,7 @@ export function useFileUpload(examId: string, materialType: string) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const loadUploadedFiles = useCallback(async () => {
     const res = await fetch(
@@ -51,44 +52,62 @@ export function useFileUpload(examId: string, materialType: string) {
 
   async function saveToKnowledgeBase() {
     if (pendingFiles.length === 0) return;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setStatus("uploading");
     setMessage("");
     setUploadProgress({ current: 0, total: pendingFiles.length });
 
-    let totalChunks = 0;
-    let idx = 0;
-    for (const { file, hasAnswers } of pendingFiles) {
-      setUploadProgress({ current: idx + 1, total: pendingFiles.length });
-      const form = new FormData();
-      form.append("file", file);
-      form.append("exam_id", examId);
-      form.append("material_type", materialType);
-      if (materialType === "exam") {
-        form.append("has_answers", String(hasAnswers));
+    try {
+      let totalChunks = 0;
+      let idx = 0;
+      for (const { file, hasAnswers } of pendingFiles) {
+        if (controller.signal.aborted) return;
+        setUploadProgress({ current: idx + 1, total: pendingFiles.length });
+        const form = new FormData();
+        form.append("file", file);
+        form.append("exam_id", examId);
+        form.append("material_type", materialType);
+        if (materialType === "exam") {
+          form.append("has_answers", String(hasAnswers));
+        }
+
+        const res = await fetch("/api/upload", { method: "POST", body: form, signal: controller.signal });
+        const data = await res.json();
+
+        if (!res.ok) {
+          setStatus("error");
+          setMessage(data.error ?? "上传失败");
+          setUploadProgress(null);
+          return;
+        }
+        totalChunks += data.chunks as number;
+        idx++;
       }
 
-      const res = await fetch("/api/upload", { method: "POST", body: form });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setStatus("error");
-        setMessage(data.error ?? "上传失败");
-        setUploadProgress(null);
-        return;
+      setUploadProgress(null);
+      setStatus("success");
+      setMessage("已存入知识库");
+      setPendingFiles([]);
+      await loadUploadedFiles();
+      if (materialType !== "textbook") {
+        try { sessionStorage.removeItem(`p2_${examId}`); } catch {}
       }
-      totalChunks += data.chunks as number;
-      idx++;
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setStatus("error");
+      setMessage("上传失败，请重试");
+      setUploadProgress(null);
     }
+  }
 
+  function cancelUpload() {
+    abortRef.current?.abort();
+    setStatus("idle");
+    setMessage("");
     setUploadProgress(null);
-    setStatus("success");
-    setMessage("已存入知识库");
-    setPendingFiles([]);
-    await loadUploadedFiles();
-    // 知识库变更后让 Page 2 重新计算 isStale
-    if (materialType !== "textbook") {
-      try { sessionStorage.removeItem(`p2_${examId}`); } catch {}
-    }
   }
 
   function toggleSelect(name: string) {
@@ -135,7 +154,7 @@ export function useFileUpload(examId: string, materialType: string) {
   }
 
   return {
-    pendingFiles, status, message, addFiles, removeFile, togglePendingHasAnswers, saveToKnowledgeBase,
+    pendingFiles, status, message, addFiles, removeFile, togglePendingHasAnswers, saveToKnowledgeBase, cancelUpload,
     uploadedFiles, editMode, selected, deleting,
     uploadProgress,
     loadUploadedFiles, toggleSelect, toggleSelectAll, toggleEditMode, deleteFiles,

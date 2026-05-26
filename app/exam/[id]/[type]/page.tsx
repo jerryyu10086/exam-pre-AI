@@ -29,7 +29,7 @@ export default function UploadPage() {
   const [hasPlan, setHasPlan] = useState(false);
 
   const {
-    pendingFiles, status, message, addFiles, removeFile, togglePendingHasAnswers, saveToKnowledgeBase,
+    pendingFiles, status, message, addFiles, removeFile, togglePendingHasAnswers, saveToKnowledgeBase, cancelUpload,
     uploadedFiles, editMode, selected, deleting,
     uploadProgress,
     loadUploadedFiles, toggleSelect, toggleSelectAll, toggleEditMode, deleteFiles,
@@ -236,10 +236,10 @@ export default function UploadPage() {
                 <p className="text-muted text-sm mb-2">
                   第 {uploadProgress.current}/{uploadProgress.total} 个文件存入中...
                 </p>
-                <div className="w-full bg-card rounded-full h-1.5 overflow-hidden">
+                <div className="w-full bg-background rounded-full h-1 border border-white/5">
                   <div
-                    className="bg-accent h-1.5 rounded-full transition-all duration-300"
-                    style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                    className="bg-accent h-1 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.round((uploadProgress.current / uploadProgress.total) * 100)}%` }}
                   />
                 </div>
               </div>
@@ -260,14 +260,24 @@ export default function UploadPage() {
               </p>
             )}
 
-            {/* 存入按钮 */}
-            <button
-              onClick={saveToKnowledgeBase}
-              disabled={pendingFiles.length === 0 || status === "uploading"}
-              className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md py-2 text-sm font-medium transition-colors"
-            >
-              {status === "uploading" ? "存入中..." : "存入知识库"}
-            </button>
+            {/* 存入按钮 / 上传中取消行 */}
+            <div className="flex gap-3">
+              {status === "uploading" && (
+                <button
+                  onClick={cancelUpload}
+                  className="flex-1 bg-card border border-white/5 hover:bg-card-hover text-primary rounded-md py-2 text-sm transition-colors"
+                >
+                  取消
+                </button>
+              )}
+              <button
+                onClick={saveToKnowledgeBase}
+                disabled={pendingFiles.length === 0 || status === "uploading"}
+                className="flex-1 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md py-2 text-sm font-medium transition-colors"
+              >
+                {status === "uploading" ? "存入中..." : "存入知识库"}
+              </button>
+            </div>
           </>
         )}
       </div>
