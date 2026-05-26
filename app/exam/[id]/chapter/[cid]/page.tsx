@@ -162,7 +162,7 @@ export default function ChapterPage() {
     setCollapsedSet(new Set());
   }
 
-  // 按 id 升序后再按 section_number 顺序分组（同一 section 的 id 连续，prompt 已约束）
+  // 按 id 升序后按 section_number 全局合并分组（用 Map 避免非连续同名 section 产生重复 key）
   const sequentialGroups = useMemo(() => {
     const sorted = [...(chapter?.knowledge_points ?? [])].sort((a, b) => {
       const ai = parseInt((a.id ?? "kp_0").replace("kp_", ""), 10);
@@ -171,17 +171,22 @@ export default function ChapterPage() {
     });
     const indexMap = new Map<string, number>(sorted.map((kp, i) => [kp.id, i + 1]));
     type Group = { key: string; section_number: string; section_name: string; points: KnowledgePoint[] };
-    const groups: Group[] = [];
+    const groupMap = new Map<string, Group>();
+    const groupOrder: string[] = [];
+    let nosecCount = 0;
     for (const kp of sorted) {
       const sn = kp.section_number ?? "";
-      const last = groups[groups.length - 1];
-      if (!last || last.section_number !== sn) {
-        groups.push({ key: sn || `__nosec_${groups.length}`, section_number: sn, section_name: kp.section_name ?? "", points: [kp] });
+      // 无 section_number 的知识点各自独立成组，不合并
+      const key = sn ? sn : `__nosec_${nosecCount++}`;
+      if (sn && groupMap.has(key)) {
+        groupMap.get(key)!.points.push(kp);
       } else {
-        last.points.push(kp);
+        const g: Group = { key, section_number: sn, section_name: kp.section_name ?? "", points: [kp] };
+        groupMap.set(key, g);
+        groupOrder.push(key);
       }
     }
-    return { groups, indexMap };
+    return { groups: groupOrder.map((k) => groupMap.get(k)!), indexMap };
   }, [chapter?.knowledge_points]);
 
   const tieredGroups = useMemo(() =>
