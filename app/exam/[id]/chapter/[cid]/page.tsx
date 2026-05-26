@@ -325,7 +325,7 @@ export default function ChapterPage() {
                 <div key={g.key}>
                   {g.section_number && (
                     <div className="text-muted text-base font-medium mb-2">
-                      {toChineseNum(g.section_number)}{g.section_name ? `  ${g.section_name}` : ""}
+                      {toChineseNum(g.section_number)}{g.section_name ? `、${g.section_name}` : ""}
                     </div>
                   )}
                   <div className="flex flex-col gap-3">
