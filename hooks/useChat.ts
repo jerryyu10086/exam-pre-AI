@@ -24,6 +24,7 @@ export function useChat(examId: string, chapterOrder: number) {
 
   const initialLoadDone = useRef(false);
   const msgCache = useRef<Map<string, Message[]>>(new Map());
+  const abortRef = useRef<AbortController | null>(null);
 
   const loadConversations = useCallback(async () => {
     const res = await fetch(
@@ -93,6 +94,9 @@ export function useChat(examId: string, chapterOrder: number) {
     };
     setMessages((prev) => [...prev, optimisticMsg]);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -103,6 +107,7 @@ export function useChat(examId: string, chapterOrder: number) {
           conversation_id: activeConvId,
           message: text,
         }),
+        signal: controller.signal,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "发送失败");
@@ -126,12 +131,19 @@ export function useChat(examId: string, chapterOrder: number) {
       return true;
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
-      console.error("sendMessage error:", err);
+      if ((err as { name?: string })?.name !== "AbortError") {
+        console.error("sendMessage error:", err);
+      }
       return false;
     } finally {
+      abortRef.current = null;
       setSending(false);
     }
   }, [sending, examId, chapterOrder, activeConvId, loadConversations]);
+
+  const stopSending = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
 
   const deleteConversations = useCallback(
     async (ids: string[]) => {
@@ -173,6 +185,7 @@ export function useChat(examId: string, chapterOrder: number) {
     openConversation,
     resetConversation,
     sendMessage,
+    stopSending,
     deleteConversations,
     renameConversation,
     loadConversations,

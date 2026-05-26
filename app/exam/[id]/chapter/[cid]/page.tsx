@@ -62,18 +62,42 @@ function toChineseNum(s: string): string {
   return s;
 }
 
+// auto-grow 高度上下限（px）
+const INPUT_MIN_H = 52;
+const INPUT_MAX_H = 200;
+
 // 独立组件持有 input state，打字不触发外层重渲染
 const ChatInput = forwardRef<
   { setValue: (v: string) => void },
-  { onSend: (text: string) => Promise<boolean>; disabled: boolean }
->(function ChatInput({ onSend, disabled }, ref) {
+  {
+    onSend: (text: string) => Promise<boolean>;
+    onStop: () => void;
+    sending: boolean;
+  }
+>(function ChatInput({ onSend, onStop, sending }, ref) {
   const [input, setInput] = useState("");
+  const taRef = useRef<HTMLTextAreaElement>(null);
 
-  useImperativeHandle(ref, () => ({ setValue: (v) => setInput(v) }));
+  useImperativeHandle(ref, () => ({
+    setValue: (v) => {
+      setInput(v);
+      // 让 useEffect 在下个 tick 重算高度
+      requestAnimationFrame(() => taRef.current?.focus());
+    },
+  }));
+
+  // textarea auto-resize：随内容增长，达到上限后内部滚动
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    const next = Math.min(Math.max(ta.scrollHeight, INPUT_MIN_H), INPUT_MAX_H);
+    ta.style.height = `${next}px`;
+  }, [input]);
 
   async function handleSend() {
     const text = input.trim();
-    if (!text || disabled) return;
+    if (!text || sending) return;
     setInput("");
     const ok = await onSend(text);
     if (!ok) setInput(text);
@@ -83,23 +107,46 @@ const ChatInput = forwardRef<
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }
 
+  const hasText = input.trim().length > 0;
+  const showStop = sending;
+  // 按钮启用条件：sending 时永远可点（停止）；否则需要有文字
+  const btnActive = showStop || hasText;
+
   return (
-    <div className="border-t border-white/5 p-3 flex gap-2 shrink-0">
-      <textarea
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="输入问题，Enter 发送，Shift+Enter 换行"
-        rows={2}
-        className="flex-1 bg-background border border-white/5 rounded-md px-3 py-2 text-primary text-sm placeholder:text-muted outline-none focus:border-accent/50 transition-colors resize-none"
-      />
-      <button
-        onClick={handleSend}
-        disabled={!input.trim() || disabled}
-        className="self-end bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md px-4 py-2 text-sm font-medium transition-colors"
-      >
-        发送
-      </button>
+    <div className="border-t border-white/5 p-3 shrink-0">
+      <div className="relative bg-background border border-white/5 rounded-2xl px-4 py-3 focus-within:border-accent/50 transition-colors">
+        <textarea
+          ref={taRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="输入问题，Enter 发送，Shift+Enter 换行"
+          rows={1}
+          style={{ minHeight: INPUT_MIN_H, maxHeight: INPUT_MAX_H }}
+          className="chat-scrollbar w-full bg-transparent text-primary text-sm placeholder:text-muted outline-none resize-none pr-10 leading-relaxed"
+        />
+        <button
+          onClick={showStop ? onStop : handleSend}
+          disabled={!btnActive}
+          aria-label={showStop ? "停止" : "发送"}
+          className={`absolute right-2 bottom-2 w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
+            btnActive
+              ? "bg-accent hover:bg-accent-hover text-primary cursor-pointer"
+              : "bg-card-hover text-muted cursor-not-allowed"
+          }`}
+        >
+          {showStop ? (
+            // 方块：停止
+            <span className="block w-2.5 h-2.5 bg-primary rounded-[2px]" />
+          ) : (
+            // 箭头：发送
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5" />
+              <polyline points="5 12 12 5 19 12" />
+            </svg>
+          )}
+        </button>
+      </div>
     </div>
   );
 });
@@ -121,7 +168,7 @@ export default function ChapterPage() {
   const chatInputRef = useRef<{ setValue: (v: string) => void }>(null);
   const {
     conversations, activeConvId, messages, sending, loadingMessages,
-    openConversation, resetConversation, sendMessage, deleteConversations, renameConversation,
+    openConversation, resetConversation, sendMessage, stopSending, deleteConversations, renameConversation,
   } = useChat(params.id, chapterOrder);
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null);
   const [deletingConv, setDeletingConv] = useState(false);
@@ -549,7 +596,7 @@ export default function ChapterPage() {
         </div>
 
         {/* 输入区 */}
-        <ChatInput ref={chatInputRef} onSend={sendMessage} disabled={sending} />
+        <ChatInput ref={chatInputRef} onSend={sendMessage} onStop={stopSending} sending={sending} />
       </div>
 
       {/* 删除确认弹窗 */}
