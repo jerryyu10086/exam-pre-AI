@@ -81,3 +81,32 @@ html {
   scrollbar-width: thin;
   scrollbar-color: var(--color-card-hover) transparent;
 }
+
+/* KaTeX 块级公式：超宽时横向滚动，避免顶出消息卡片 */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+.katex-display::-webkit-scrollbar {
+  height: 6px;
+}
+
+.katex-display::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.katex-display::-webkit-scrollbar-thumb {
+  background: var(--color-card-hover);
+  border-radius: 3px;
+}
+
+.katex-display::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+}
+
+.katex-display {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-card-hover) transparent;
+}

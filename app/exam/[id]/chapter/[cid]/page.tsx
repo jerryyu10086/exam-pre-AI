@@ -408,7 +408,7 @@ export default function ChapterPage() {
         onClick={() => setDrawerOpen((v) => !v)}
         style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
         className={`fixed top-1/2 right-0 bg-accent hover:bg-accent-hover text-primary text-xs font-medium px-2 py-4 rounded-l-lg z-40 shadow-lg transition-transform duration-300 ${
-          drawerOpen ? "md:-translate-x-[440px] -translate-y-1/2 max-md:opacity-0 max-md:pointer-events-none" : "-translate-y-1/2"
+          drawerOpen ? "md:-translate-x-[560px] -translate-y-1/2 max-md:opacity-0 max-md:pointer-events-none" : "-translate-y-1/2"
         }`}
       >
         {drawerOpen ? "收起" : "💬 对话"}
@@ -416,7 +416,7 @@ export default function ChapterPage() {
 
       {/* ── 右侧对话抽屉 ── */}
       <div
-        className={`fixed top-0 right-0 h-full w-full md:w-[440px] bg-card border-l border-white/5 z-30 flex flex-col transition-transform duration-300 will-change-transform ${
+        className={`fixed top-0 right-0 h-full w-full md:w-[560px] bg-card border-l border-white/5 z-30 flex flex-col transition-transform duration-300 will-change-transform ${
           drawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
