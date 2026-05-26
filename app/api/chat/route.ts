@@ -139,14 +139,28 @@ export async function POST(request: NextRequest) {
           }\n`
         : "";
 
+    // 知识点序号对照表（按 kp_N 数字升序排列，给 AI 用于引用）
+    const sortedKps = [...kpsArr].sort((a, b) => {
+      const ai = parseInt(String(a.id ?? "").replace("kp_", ""), 10);
+      const bi = parseInt(String(b.id ?? "").replace("kp_", ""), 10);
+      return ai - bi;
+    });
+    const kpTableLines = sortedKps
+      .map((kp, i) => `${i + 1}. ${kp.concept as string}`)
+      .join("\n");
+    const kpTableBlock = sortedKps.length > 0
+      ? `\n知识点序号列表（引用时请使用此序号）：\n${kpTableLines}\n`
+      : "";
+
     const systemPrompt = `你是课件答疑助手，基于以下检索内容和课件知识库回答问题。
-${chapterCtxBlock}
+${chapterCtxBlock}${kpTableBlock}
 规则：
 1. 检索内容不足时，明确告知"该问题在课件中只有部分覆盖"
 2. 引用时标注来源文件名或章节位置
 3. 涉及本章未提及内容时，提示"建议查看其他课件"
 4. 优先基于检索内容回答，避免凭空发挥
 5. 所有数学公式使用 $（行内）或 $$（独立行）标注，不使用其他括号形式
+6. 引用知识点时，使用格式「（序号. 概念名）」，例如「（3. 库仑定律）」，不要使用 kp_N 格式
 
 课件知识库（完整原始内容，含所有知识点、易混淆点、记忆锚点）：
 ${JSON.stringify(fileEntry ?? {}, null, 2)}

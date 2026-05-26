@@ -1,7 +1,8 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle, Children } from "react";
+import type { ReactNode } from "react";
 import TierContent, { type KnowledgePoint } from "@/components/tier-content";
 import { useChat } from "@/hooks/useChat";
 import ReactMarkdown from "react-markdown";
@@ -26,6 +27,32 @@ const TIER_LEGEND = [
 ] as const;
 
 type ViewMode = "sequential" | "tiered";
+
+// 检测 AI 引用格式「（N. 概念名）」，渲染为 chip
+const KP_REF_RE = /[（(](\d+)[.．]\s*([^）)]{1,40})[）)]/g;
+function processKpRefs(node: ReactNode, idx: number): ReactNode {
+  if (typeof node !== "string") return node;
+  KP_REF_RE.lastIndex = 0;
+  if (!KP_REF_RE.test(node)) return node;
+  KP_REF_RE.lastIndex = 0;
+  const parts: ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = KP_REF_RE.exec(node)) !== null) {
+    if (m.index > last) parts.push(node.slice(last, m.index));
+    parts.push(
+      <span
+        key={`kp-${idx}-${m.index}`}
+        className="inline-flex items-center bg-background border border-accent/40 text-accent text-xs px-2 py-0.5 rounded-md mx-0.5 whitespace-nowrap align-middle"
+      >
+        {m[0]}
+      </span>
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < node.length) parts.push(node.slice(last));
+  return parts;
+}
 
 const CN_NUMS = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十",
   "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十"];
@@ -488,7 +515,11 @@ export default function ChapterPage() {
                     remarkPlugins={[remarkGfm, remarkMath]}
                     rehypePlugins={[rehypeKatex]}
                     components={{
-                      p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                      p: ({ children }) => (
+                        <p className="mb-2 last:mb-0 leading-relaxed">
+                          {Children.map(children, (child, i) => processKpRefs(child, i))}
+                        </p>
+                      ),
                       strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                       em: ({ children }) => <em className="italic">{children}</em>,
                       ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
