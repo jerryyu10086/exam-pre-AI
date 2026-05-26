@@ -23,6 +23,7 @@ export function useFileUpload(examId: string, materialType: string) {
   const [editMode, setEditMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
 
   const loadUploadedFiles = useCallback(async () => {
     const res = await fetch(
@@ -52,9 +53,12 @@ export function useFileUpload(examId: string, materialType: string) {
     if (pendingFiles.length === 0) return;
     setStatus("uploading");
     setMessage("");
+    setUploadProgress({ current: 0, total: pendingFiles.length });
 
     let totalChunks = 0;
+    let idx = 0;
     for (const { file, hasAnswers } of pendingFiles) {
+      setUploadProgress({ current: idx + 1, total: pendingFiles.length });
       const form = new FormData();
       form.append("file", file);
       form.append("exam_id", examId);
@@ -69,11 +73,14 @@ export function useFileUpload(examId: string, materialType: string) {
       if (!res.ok) {
         setStatus("error");
         setMessage(data.error ?? "上传失败");
+        setUploadProgress(null);
         return;
       }
       totalChunks += data.chunks as number;
+      idx++;
     }
 
+    setUploadProgress(null);
     setStatus("success");
     setMessage("已存入知识库");
     setPendingFiles([]);
@@ -130,6 +137,7 @@ export function useFileUpload(examId: string, materialType: string) {
   return {
     pendingFiles, status, message, addFiles, removeFile, togglePendingHasAnswers, saveToKnowledgeBase,
     uploadedFiles, editMode, selected, deleting,
+    uploadProgress,
     loadUploadedFiles, toggleSelect, toggleSelectAll, toggleEditMode, deleteFiles,
   };
 }

@@ -31,6 +31,7 @@ export default function UploadPage() {
   const {
     pendingFiles, status, message, addFiles, removeFile, togglePendingHasAnswers, saveToKnowledgeBase,
     uploadedFiles, editMode, selected, deleting,
+    uploadProgress,
     loadUploadedFiles, toggleSelect, toggleSelectAll, toggleEditMode, deleteFiles,
   } = useFileUpload(params.id, params.type);
 
@@ -229,8 +230,23 @@ export default function UploadPage() {
               </div>
             )}
 
+            {/* 上传进度 */}
+            {uploadProgress && (
+              <div className="mb-4">
+                <p className="text-muted text-sm mb-2">
+                  第 {uploadProgress.current}/{uploadProgress.total} 个文件存入中...
+                </p>
+                <div className="w-full bg-card rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-accent h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* 状态提示 */}
-            {message && (
+            {message && !uploadProgress && (
               <p
                 className={`text-sm mb-4 ${
                   status === "error"
@@ -250,7 +266,7 @@ export default function UploadPage() {
               disabled={pendingFiles.length === 0 || status === "uploading"}
               className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md py-2 text-sm font-medium transition-colors"
             >
-              {status === "uploading" ? "处理中..." : "存入知识库"}
+              {status === "uploading" ? "存入中..." : "存入知识库"}
             </button>
           </>
         )}
