@@ -56,6 +56,7 @@ type Progress = {
   phase: "mapping" | "reducing";
   current: number;
   total: number;
+  batchSize: number;
 };
 
 export default function PlanPage() {
@@ -133,7 +134,7 @@ export default function PlanPage() {
         if (controller.signal.aborted) return;
         const batch = filesToMap.slice(i, i + BATCH_SIZE);
 
-        setProgress({ phase: "mapping", current: completed + batch.length, total });
+        setProgress({ phase: "mapping", current: completed + batch.length, total, batchSize: batch.length });
 
         type MapEntry = { file_name: string; material_type: string; data: Record<string, unknown> };
         const batchResults = await Promise.all(
@@ -166,12 +167,12 @@ export default function PlanPage() {
         }
 
         completed += batch.length;
-        setProgress({ phase: "mapping", current: completed, total });
+        setProgress({ phase: "mapping", current: completed, total, batchSize: batch.length });
       }
 
       // 5. REDUCE
       if (controller.signal.aborted) return;
-      setProgress({ phase: "reducing", current: 0, total: 0 });
+      setProgress({ phase: "reducing", current: 0, total: 0, batchSize: 0 });
 
       const res = await fetch("/api/plan", {
         method: "POST",
@@ -255,7 +256,7 @@ export default function PlanPage() {
                 {progress === null
                   ? "正在准备..."
                   : progress.phase === "mapping"
-                  ? `${progress.current}/${progress.total} 个文件分析中...`
+                  ? `${progress.batchSize} 个文件并行分析中...`
                   : "正在生成复习计划..."}
               </p>
               <p className="text-muted/50 text-xs">已等待 {elapsed} 秒</p>
