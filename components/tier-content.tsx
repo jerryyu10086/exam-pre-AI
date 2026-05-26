@@ -30,9 +30,10 @@ type TierContentProps = {
   collapsed: boolean;
   onToggle: (id: string) => void;
   onAsk?: (concept: string) => void;
+  isKeyFocus?: boolean;
 };
 
-const TierContent = memo(function TierContent({ point, index, collapsed, onToggle, onAsk }: TierContentProps) {
+const TierContent = memo(function TierContent({ point, index, collapsed, onToggle, onAsk, isKeyFocus }: TierContentProps) {
   const color = TIER_COLOR[point.tier] ?? TIER_COLOR["必学"];
 
   return (
@@ -48,7 +49,12 @@ const TierContent = memo(function TierContent({ point, index, collapsed, onToggl
         <div className="flex items-start justify-between gap-2">
           <span className="text-primary text-sm font-medium leading-snug">
             <span className="text-muted mr-1.5">{index}.</span>
-            {point.concept}
+            <span
+              className={isKeyFocus ? "underline underline-offset-2" : ""}
+              style={isKeyFocus ? { textDecorationColor: "var(--color-accent)" } : undefined}
+            >
+              {point.concept}
+            </span>
           </span>
           <button
             onClick={() => onToggle(point.id)}

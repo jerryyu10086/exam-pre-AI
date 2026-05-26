@@ -337,6 +337,7 @@ export default function ChapterPage() {
                         collapsed={collapsedSet.has(kp.id)}
                         onToggle={toggleCollapse}
                         onAsk={handleAsk}
+                        isKeyFocus={chapter.key_focus?.includes(kp.id)}
                       />
                     ))}
                   </div>
@@ -363,6 +364,7 @@ export default function ChapterPage() {
                           collapsed={collapsedSet.has(kp.id)}
                           onToggle={toggleCollapse}
                           onAsk={handleAsk}
+                          isKeyFocus={chapter.key_focus?.includes(kp.id)}
                         />
                       ))}
                     </div>

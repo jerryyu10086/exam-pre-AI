@@ -64,7 +64,7 @@ export default function ChapterCard({
                 {names.join(" / ")}
               </p>
               {tier === "必学" && (keyFocusCount ?? 0) > 0 && (
-                <span className="text-accent text-xs shrink-0 mt-1">重点 {keyFocusCount}</span>
+                <span className="text-accent text-xs shrink-0 mt-1">（{keyFocusCount}个重点）</span>
               )}
             </div>
           );
