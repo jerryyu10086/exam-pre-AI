@@ -27,6 +27,14 @@ const TIER_LEGEND = [
 
 type ViewMode = "sequential" | "tiered";
 
+const CN_NUMS = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十",
+  "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十"];
+function toChineseNum(s: string): string {
+  const n = parseInt(s, 10);
+  if (!isNaN(n) && n >= 1 && n <= 20 && String(n) === s) return CN_NUMS[n];
+  return s;
+}
+
 // 独立组件持有 input state，打字不触发外层重渲染
 const ChatInput = forwardRef<
   { setValue: (v: string) => void },
@@ -316,8 +324,8 @@ export default function ChapterPage() {
               sequentialGroups.groups.map((g) => (
                 <div key={g.key}>
                   {g.section_number && (
-                    <div className="text-muted text-xs font-medium mb-2">
-                      {g.section_number}{g.section_name ? `  ${g.section_name}` : ""}
+                    <div className="text-primary text-base font-medium mb-2">
+                      {toChineseNum(g.section_number)}{g.section_name ? `  ${g.section_name}` : ""}
                     </div>
                   )}
                   <div className="flex flex-col gap-3">

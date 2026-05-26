@@ -43,7 +43,7 @@ export default function ChapterCard({
       </div>
 
       {chapterSummary && (
-        <p className="text-muted text-xs leading-relaxed line-clamp-2 mb-3">{chapterSummary}</p>
+        <p className="text-muted text-sm leading-relaxed line-clamp-2 mb-3">{chapterSummary}</p>
       )}
 
       <div className="flex flex-col gap-2 mb-3">
