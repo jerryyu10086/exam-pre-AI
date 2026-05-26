@@ -272,7 +272,7 @@ export default function ChapterPage() {
 
         {/* 章节脉络摘要（REDUCE 生成，可选） */}
         {chapter?.chapter_summary && (
-          <div className="bg-card border border-white/5 rounded-lg p-4 mb-5">
+          <div className="bg-card border border-accent/30 rounded-lg p-4 mb-5">
             <p className="text-muted text-sm leading-relaxed">{chapter.chapter_summary}</p>
           </div>
         )}
