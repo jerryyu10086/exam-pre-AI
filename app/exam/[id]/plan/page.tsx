@@ -72,6 +72,7 @@ export default function PlanPage() {
 
   const previousPlanRef = useRef<unknown>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const phaseRef = useRef<"idle" | "mapping" | "reducing">("idle");
 
   const [showModal, setShowModal] = useState(false);
   const [ctx, setCtx] = useState<ContextFields>({ chapters: "", weights: "", other: "" });
@@ -109,6 +110,7 @@ export default function PlanPage() {
     setStatus("loading");
     setErrorMsg("");
     setProgress(null);
+    phaseRef.current = "mapping";
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -172,6 +174,7 @@ export default function PlanPage() {
 
       // 5. REDUCE
       if (controller.signal.aborted) return;
+      phaseRef.current = "reducing";
       setProgress({ phase: "reducing", current: 0, total: 0, batchSize: 0 });
 
       const res = await fetch("/api/plan", {
@@ -193,27 +196,34 @@ export default function PlanPage() {
         }
       } catch {}
 
+      phaseRef.current = "idle";
       router.push(`/exam/${params.id}/review`);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
       setErrorMsg(err instanceof Error ? err.message : "生成失败，请重试");
       setStatus("error");
       setProgress(null);
+      phaseRef.current = "idle";
     }
   }
 
   async function handleCancel() {
     abortRef.current?.abort();
+    const cancelledPhase = phaseRef.current;
+    phaseRef.current = "idle";
 
     if (previousPlanRef.current !== null) {
+      // 重新解析：恢复旧 plans.data，maps_cache 保留新增缓存
       await fetch("/api/plan", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ exam_id: params.id, data: previousPlanRef.current }),
       });
-    } else {
+    } else if (cancelledPhase !== "reducing") {
+      // 首次解析 MAP 阶段取消：删除整行（maps_cache 尚未完整）
       await fetch(`/api/plan?exam_id=${params.id}`, { method: "DELETE" });
     }
+    // 首次解析 REDUCE 阶段取消：仅 abort，maps_cache 已完整写入，plans.data 未写入，保留现状
 
     router.push(`/exam/${params.id}`);
   }
