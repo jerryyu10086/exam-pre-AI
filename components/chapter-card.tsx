@@ -55,29 +55,28 @@ export default function ChapterCard({
           return (
             <div key={tier} className="flex items-start gap-2">
               <div
-                className="w-1 shrink-0 rounded-full mt-1"
+                className="w-1 shrink-0 rounded-full mt-1.5"
                 style={{
                   backgroundColor: TIER_COLOR_VAR[tier],
                   alignSelf: "stretch",
                   minHeight: "1rem",
                 }}
               />
-              <p className="text-muted text-sm leading-relaxed flex-1">
+              <div className="flex flex-wrap gap-1.5 flex-1">
                 {names.map((name, i) => (
-                  <span key={i}>
-                    {i > 0 && " / "}
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 whitespace-nowrap bg-background border border-white/10 text-muted text-xs px-2 py-0.5 rounded-md"
+                  >
                     {name}
                     {keyFocusConcepts?.has(name) && (
-                      <span className="ml-1 inline-block align-middle bg-accent/15 text-accent text-xs px-1.5 py-0.5 rounded leading-none">
+                      <span className="bg-accent/15 text-accent text-xs px-1 rounded leading-none">
                         重点
                       </span>
                     )}
                   </span>
                 ))}
-              </p>
-              {tier === "必学" && (keyFocusCount ?? 0) > 0 && (
-                <span className="text-accent text-xs shrink-0 mt-1">（{keyFocusCount}个重点）</span>
-              )}
+              </div>
             </div>
           );
         })}
