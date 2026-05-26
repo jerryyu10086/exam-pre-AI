@@ -70,9 +70,7 @@ export default function ChapterCard({
                   >
                     {name}
                     {keyFocusConcepts?.has(name) && (
-                      <span className="bg-accent/15 text-accent text-xs px-1 rounded leading-none">
-                        重点
-                      </span>
+                      <span className="text-accent text-xs leading-none">★</span>
                     )}
                   </span>
                 ))}

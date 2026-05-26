@@ -51,9 +51,7 @@ const TierContent = memo(function TierContent({ point, index, collapsed, onToggl
             <span className="text-muted mr-1.5">{index}.</span>
             {point.concept}
             {isKeyFocus && (
-              <span className="ml-1.5 inline-block align-middle bg-accent/15 text-accent text-xs px-1.5 py-0.5 rounded leading-none">
-                重点
-              </span>
+              <span className="ml-1 text-accent text-xs leading-none">★</span>
             )}
           </span>
           <button
