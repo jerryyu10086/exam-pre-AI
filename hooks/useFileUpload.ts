@@ -25,6 +25,7 @@ export function useFileUpload(examId: string, materialType: string) {
   const [deleting, setDeleting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const sessionUploadedRef = useRef<string[]>([]);
 
   const loadUploadedFiles = useCallback(async () => {
     const res = await fetch(
@@ -55,6 +56,7 @@ export function useFileUpload(examId: string, materialType: string) {
 
     const controller = new AbortController();
     abortRef.current = controller;
+    sessionUploadedRef.current = [];
 
     setStatus("uploading");
     setMessage("");
@@ -84,6 +86,7 @@ export function useFileUpload(examId: string, materialType: string) {
           return;
         }
         totalChunks += data.chunks as number;
+        sessionUploadedRef.current.push(file.name);
         idx++;
       }
 
@@ -103,11 +106,25 @@ export function useFileUpload(examId: string, materialType: string) {
     }
   }
 
-  function cancelUpload() {
+  async function cancelUpload() {
     abortRef.current?.abort();
     setStatus("idle");
     setMessage("");
     setUploadProgress(null);
+
+    const toDelete = sessionUploadedRef.current;
+    sessionUploadedRef.current = [];
+    if (toDelete.length > 0) {
+      await fetch("/api/upload", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exam_id: examId, material_type: materialType, file_names: toDelete }),
+      });
+      await loadUploadedFiles();
+      if (materialType !== "textbook") {
+        try { sessionStorage.removeItem(`p2_${examId}`); } catch {}
+      }
+    }
   }
 
   function toggleSelect(name: string) {
