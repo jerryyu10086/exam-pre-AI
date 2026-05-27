@@ -11,8 +11,9 @@ import { preprocessMath } from "@/lib/math";
 import ChatInput from "@/components/chat-input";
 import ChatThinking from "@/components/chat-thinking";
 
-// 全局问答 kp 引用 chip：`（章号.编号. 概念名）`，例如「（1.5. 库仑定律）」
-const KP_REF_RE = /[（(](\d+)[.．](\d+)[.．]\s*([^）)]{1,40})[）)]/g;
+// 检测 AI 引用格式「（N. 概念名）」，渲染为 chip
+// 整数序号 + 概念名（概念名首字符不能是数字，防止误匹配章节号如 1.3）
+const KP_REF_RE = /[（(](\d+)[.．]\s*([^\d）)\s][^）)]{0,39})[）)]/g;
 function processKpRefs(node: ReactNode, idx: number): ReactNode {
   if (typeof node !== "string") return node;
   KP_REF_RE.lastIndex = 0;

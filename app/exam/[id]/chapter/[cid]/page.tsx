@@ -31,7 +31,8 @@ const TIER_LEGEND = [
 type ViewMode = "sequential" | "tiered";
 
 // 检测 AI 引用格式「（N. 概念名）」，渲染为 chip
-const KP_REF_RE = /[（(](\d+)[.．]\s*([^）)]{1,40})[）)]/g;
+// 整数序号 + 概念名（概念名首字符不能是数字，防止误匹配章节号如 1.3）
+const KP_REF_RE = /[（(](\d+)[.．]\s*([^\d）)\s][^）)]{0,39})[）)]/g;
 function processKpRefs(node: ReactNode, idx: number): ReactNode {
   if (typeof node !== "string") return node;
   KP_REF_RE.lastIndex = 0;
