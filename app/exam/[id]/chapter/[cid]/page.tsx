@@ -132,6 +132,14 @@ export default function ChapterPage() {
     if (isAppend) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // 手机端抽屉打开时锁 body scroll（抽屉作为全屏次级页面，禁止背后 Page 6 滚动透出）
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [drawerOpen]);
+
   // ── 折叠控制 ──────────────────────────────────────────────
   const toggleCollapse = useCallback((id: string) => {
     setCollapsedSet((prev) => {
@@ -367,9 +375,9 @@ export default function ChapterPage() {
         {drawerOpen ? "收起" : "💬 对话"}
       </button>
 
-      {/* ── 右侧对话抽屉 ── */}
+      {/* ── 右侧对话抽屉（手机端全屏次级页面 + 桌面端右侧抽屉） ── */}
       <div
-        className={`fixed top-0 right-0 h-full w-full md:w-[560px] bg-card border-l border-white/5 z-30 flex flex-col transition-transform duration-300 will-change-transform ${
+        className={`fixed top-0 right-0 h-[100dvh] w-full md:w-[560px] bg-card border-l border-white/5 z-50 md:z-30 flex flex-col transition-transform duration-300 will-change-transform ${
           drawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
