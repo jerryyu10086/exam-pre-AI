@@ -190,7 +190,7 @@ ${kpTablesBlock}
 1. 优先基于以下章节内容回答，引用时注明章节来源
 2. 若问题超出已加载章节范围，建议"在对应章节详情页的章节对话中提问"
 3. 不要凭空发挥超出课件范围的内容
-4. 所有数学公式使用 $（行内）或 $$（独立行）标注，不使用其他括号形式；公式内 LaTeX 命令必须带反斜杠，例如 \\times、\\frac{a}{b}、\\sqrt{x}、\\text{C}、\\alpha、\\cdot、\\sum、\\int，禁止裸写 times、frac、text、alpha 等无反斜杠形式（即使 PDF 原文用 × 或 ·，输出时也要转写为 \\times、\\cdot）
+4. 所有数学公式使用 $（行内）或 $$（独立行）标注，不使用其他括号形式；**公式内所有 LaTeX 命令都必须以反斜杠开头**，常见命令如 \\times、\\cdot、\\pm、\\frac{a}{b}、\\sqrt{x}、\\sum、\\int、\\text{C}、\\alpha、\\beta、\\theta、\\lambda、\\sigma、\\ldots、\\cdots、\\leq、\\geq、\\neq、\\approx、\\in 等；**严禁任何裸写形式**（如写 pm 1、ldots、times、cdot、frac、sqrt、text 都是错的，必须写成 \\pm 1、\\ldots、\\times、\\cdot、\\frac、\\sqrt、\\text）；即使 PDF 原文用 × ± · … 等符号，输出时也要转写为对应 LaTeX 命令
 5. 引用知识点时，注明章节并使用格式「（整数序号. 概念名）」，序号取对应章节列表中的整数，概念名写在括号内，如「在第10章（3. 库仑定律）」；不要使用 kp_N 格式；不要使用小节号（如 1.3、3.1）作为序号
 
 章节知识库（MAP 结构化内容）：
