@@ -241,130 +241,131 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
 
-      {/* Mobile: top tab strip */}
+      {/* Mobile: top header — 标题 + 操作按钮（一行）+ 横向 chip（二行） */}
       <nav className="md:hidden border-b border-white/10">
-        {!folderEditMode ? (
-          <div className="flex overflow-x-auto gap-1.5 px-3 py-2">
-            <button
-              onClick={() => setActiveFolderId(null)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
-                activeFolderId === null
-                  ? "bg-accent/20 text-accent"
-                  : "text-primary/70 hover:text-primary hover:bg-card"
-              }`}
-            >
-              全部
-            </button>
-            <button
-              onClick={() => setActiveFolderId(UNGROUPED)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
-                activeFolderId === UNGROUPED
-                  ? "bg-accent/20 text-accent"
-                  : "text-primary/70 hover:text-primary hover:bg-card"
-              }`}
-            >
-              未分组
-            </button>
-            {folders.map((folder) => (
+        {/* 第一行：标题 + 操作按钮 */}
+        <div className="flex items-center gap-2 px-3 pt-2.5 pb-2">
+          <span className="text-primary text-sm font-semibold shrink-0">文件夹列表</span>
+          <div className="ml-auto flex items-center gap-2">
+            {folderEditMode ? (
+              <>
+                {selectedFolders.size > 0 && (
+                  <button
+                    onClick={() => setFolderDeleteModal(folders.filter((f) => selectedFolders.has(f.id)))}
+                    className="text-sm text-tier-must border border-tier-must/30 rounded-md px-3 py-1 hover:bg-tier-must/10 transition-colors"
+                  >
+                    删除({selectedFolders.size})
+                  </button>
+                )}
+                <button
+                  onClick={toggleFolderEditMode}
+                  className="text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1 hover:bg-card transition-colors"
+                >
+                  完成
+                </button>
+              </>
+            ) : (
+              <>
+                {folders.length > 0 && (
+                  <button
+                    onClick={toggleFolderEditMode}
+                    className="text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1 hover:bg-card transition-colors"
+                  >
+                    编辑
+                  </button>
+                )}
+                <button
+                  onClick={() => setCreatingFolder(true)}
+                  className="text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1 hover:bg-card transition-colors"
+                >
+                  + 新建
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 第二行：横向可滚动文件夹 chip(编辑/非编辑模式都横排) */}
+        <div className="chat-scrollbar flex overflow-x-auto gap-1.5 px-3 pb-2">
+          {!folderEditMode ? (
+            <>
               <button
-                key={folder.id}
-                onClick={() => setActiveFolderId(folder.id)}
+                onClick={() => setActiveFolderId(null)}
                 className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
-                  activeFolderId === folder.id
+                  activeFolderId === null
                     ? "bg-accent/20 text-accent"
                     : "text-primary/70 hover:text-primary hover:bg-card"
                 }`}
               >
-                {folder.name}
+                全部
               </button>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1 px-3 py-2">
-            {folders.length === 0 ? (
-              <p className="text-muted text-xs py-2">暂无文件夹</p>
-            ) : (
-              folders.map((folder) => (
-                <div
+              <button
+                onClick={() => setActiveFolderId(UNGROUPED)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
+                  activeFolderId === UNGROUPED
+                    ? "bg-accent/20 text-accent"
+                    : "text-primary/70 hover:text-primary hover:bg-card"
+                }`}
+              >
+                未分组
+              </button>
+              {folders.map((folder) => (
+                <button
                   key={folder.id}
-                  className={`flex items-center gap-2 rounded-md px-2 py-2 transition-colors ${
-                    selectedFolders.has(folder.id) ? "bg-accent/10" : "bg-card"
+                  onClick={() => setActiveFolderId(folder.id)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
+                    activeFolderId === folder.id
+                      ? "bg-accent/20 text-accent"
+                      : "text-primary/70 hover:text-primary hover:bg-card"
                   }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={selectedFolders.has(folder.id)}
-                    onChange={() => toggleSelectFolder(folder.id)}
-                    className="accent-accent w-4 h-4 shrink-0 cursor-pointer"
-                  />
-                  {renamingId === folder.id ? (
-                    <input
-                      ref={renameInputRef}
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") commitRename();
-                        if (e.key === "Escape") setRenamingId(null);
-                      }}
-                      onBlur={commitRename}
-                      className="flex-1 min-w-0 bg-background rounded px-2 py-1 text-primary text-sm outline-none ring-1 ring-accent/50"
-                    />
-                  ) : (
-                    <span
-                      className="flex-1 min-w-0 text-primary text-sm truncate cursor-default"
-                      onDoubleClick={() => startRename(folder)}
-                      title="双击改名"
-                    >
-                      {folder.name}
-                    </span>
-                  )}
-                  <button
-                    onClick={() => startRename(folder)}
-                    className="shrink-0 text-muted hover:text-accent text-sm px-2 py-0.5 transition-colors"
-                    title="改名"
-                  >
-                    ✎
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-        <div className="flex items-center gap-2 px-3 pb-2">
-          {folderEditMode ? (
-            <>
-              {selectedFolders.size > 0 && (
-                <button
-                  onClick={() => setFolderDeleteModal(folders.filter((f) => selectedFolders.has(f.id)))}
-                  className="text-sm text-tier-must border border-tier-must/30 rounded-md px-3 py-1.5 hover:bg-tier-must/10 transition-colors"
-                >
-                  删除({selectedFolders.size})
+                  {folder.name}
                 </button>
-              )}
-              <button
-                onClick={toggleFolderEditMode}
-                className="ml-auto text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1.5 hover:bg-card transition-colors"
-              >
-                完成
-              </button>
+              ))}
             </>
+          ) : folders.length === 0 ? (
+            <p className="text-muted text-xs py-1.5">暂无文件夹</p>
           ) : (
-            <>
-              <button
-                onClick={() => setCreatingFolder(true)}
-                className="text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1.5 hover:bg-card transition-colors"
+            folders.map((folder) => (
+              <div
+                key={folder.id}
+                className={`shrink-0 inline-flex items-center rounded-full text-sm whitespace-nowrap transition-colors border ${
+                  selectedFolders.has(folder.id)
+                    ? "bg-accent/20 border-accent/40"
+                    : "border-white/10"
+                }`}
               >
-                + 新建
-              </button>
-              {folders.length > 0 && (
+                {renamingId === folder.id ? (
+                  <input
+                    ref={renameInputRef}
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitRename();
+                      if (e.key === "Escape") setRenamingId(null);
+                    }}
+                    onBlur={commitRename}
+                    className="w-28 bg-background rounded-l-full px-3 py-1.5 text-primary text-sm outline-none ring-1 ring-accent/50"
+                  />
+                ) : (
+                  <button
+                    onClick={() => toggleSelectFolder(folder.id)}
+                    className={`px-3 py-1.5 transition-colors ${
+                      selectedFolders.has(folder.id) ? "text-accent" : "text-primary/70 hover:text-primary"
+                    }`}
+                  >
+                    {folder.name}
+                  </button>
+                )}
                 <button
-                  onClick={toggleFolderEditMode}
-                  className="text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1.5 hover:bg-card transition-colors"
+                  onClick={() => startRename(folder)}
+                  className="pl-1 pr-3 py-1.5 text-muted hover:text-accent text-xs transition-colors"
+                  title="改名"
                 >
-                  编辑
+                  ✎
                 </button>
-              )}
-            </>
+              </div>
+            ))
           )}
         </div>
       </nav>
