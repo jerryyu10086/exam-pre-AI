@@ -82,6 +82,7 @@ export default function ChapterPage() {
   const [renameValue, setRenameValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
 
   // 加载章节数据
   useEffect(() => {
@@ -132,12 +133,29 @@ export default function ChapterPage() {
     if (isAppend) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 手机端抽屉打开时锁 body scroll（抽屉作为全屏次级页面，禁止背后 Page 6 滚动透出）
+  // 抽屉打开时：1) 锁 body scroll 防双层滚动；2) 跟随 visualViewport 高度（iOS 键盘
+  // 弹起时 dvh/vh 都不缩，必须监听 visualViewport.resize 拿到真实可见高度做 inline 覆盖）
   useEffect(() => {
     if (!drawerOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+
+    function updateHeight() {
+      const vv = window.visualViewport;
+      if (drawerRef.current && vv) {
+        drawerRef.current.style.height = `${vv.height}px`;
+      }
+    }
+    updateHeight();
+    window.visualViewport?.addEventListener("resize", updateHeight);
+    window.visualViewport?.addEventListener("scroll", updateHeight);
+
+    return () => {
+      document.body.style.overflow = prev;
+      window.visualViewport?.removeEventListener("resize", updateHeight);
+      window.visualViewport?.removeEventListener("scroll", updateHeight);
+      if (drawerRef.current) drawerRef.current.style.height = "";
+    };
   }, [drawerOpen]);
 
   // ── 折叠控制 ──────────────────────────────────────────────
@@ -377,6 +395,7 @@ export default function ChapterPage() {
 
       {/* ── 右侧对话抽屉（手机端全屏次级页面 + 桌面端右侧抽屉） ── */}
       <div
+        ref={drawerRef}
         className={`fixed top-0 right-0 h-[100dvh] w-full md:w-[560px] bg-card border-l border-white/5 z-50 md:z-30 flex flex-col transition-transform duration-300 will-change-transform ${
           drawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
