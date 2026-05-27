@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { preprocessMath } from "@/lib/math";
+import ChatInput from "@/components/chat-input";
 
 // 全局问答 kp 引用 chip：`（章号.编号. 概念名）`，例如「（1.5. 库仑定律）」
 const KP_REF_RE = /[（(](\d+)[.．](\d+)[.．]\s*([^）)]{1,40})[）)]/g;
@@ -45,7 +46,6 @@ export default function GlobalQAPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loadedChapters, setLoadedChapters] = useState<string[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -55,6 +55,7 @@ export default function GlobalQAPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const msgCache = useRef<Map<string, Message[]>>(new Map());
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const cacheKey = `gqa_${params.id}`;
@@ -142,14 +143,15 @@ export default function GlobalQAPage() {
     setLoadedChapters([]);
   }
 
-  async function sendMessage() {
-    const text = input.trim();
-    if (!text || sending) return;
+  async function sendMessage(text: string): Promise<boolean> {
+    if (!text.trim() || sending) return false;
     setSending(true);
-    setInput("");
 
     const tempId = `tmp-${Date.now()}`;
     setMessages((prev) => [...prev, { id: tempId, role: "user", content: text }]);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       const res = await fetch("/api/global-chat", {
@@ -160,6 +162,7 @@ export default function GlobalQAPage() {
           conversation_id: activeConvId,
           message: text,
         }),
+        signal: controller.signal,
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -184,12 +187,21 @@ export default function GlobalQAPage() {
         msgCache.current.set(convId, next);
         return next;
       });
-    } catch {
+      return true;
+    } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      setInput(text);
+      if ((err as { name?: string })?.name !== "AbortError") {
+        console.error("global sendMessage error:", err);
+      }
+      return false;
     } finally {
+      abortRef.current = null;
       setSending(false);
     }
+  }
+
+  function stopSending() {
+    abortRef.current?.abort();
   }
 
   function startRename(conv: Conversation) {
@@ -227,13 +239,6 @@ export default function GlobalQAPage() {
     setConversations((prev) => prev.filter((c) => c.id !== id));
     if (activeConvId === id) resetConversation();
     setConfirmDelete(null);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
   }
 
   return (
@@ -381,23 +386,12 @@ export default function GlobalQAPage() {
             )}
           </div>
 
-          <div className="border-t border-white/5 p-3 flex gap-2">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="输入跨章节问题，Enter 发送，Shift+Enter 换行"
-              rows={2}
-              className="flex-1 bg-background border border-white/5 rounded-md px-3 py-2 text-primary text-sm placeholder:text-muted outline-none focus:border-accent/50 transition-colors resize-none"
-            />
-            <button
-              onClick={sendMessage}
-              disabled={!input.trim() || sending}
-              className="self-end bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md px-4 py-2 text-sm font-medium transition-colors"
-            >
-              发送
-            </button>
-          </div>
+          <ChatInput
+            onSend={sendMessage}
+            onStop={stopSending}
+            sending={sending}
+            placeholder="输入跨章节问题，Enter 发送，Shift+Enter 换行"
+          />
         </div>
       </div>
 
