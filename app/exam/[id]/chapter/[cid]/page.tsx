@@ -54,14 +54,6 @@ function processKpRefs(node: ReactNode, idx: number): ReactNode {
   return parts;
 }
 
-const CN_NUMS = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十",
-  "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十"];
-function toChineseNum(s: string): string {
-  const n = parseInt(s, 10);
-  if (!isNaN(n) && n >= 1 && n <= 20 && String(n) === s) return CN_NUMS[n];
-  return s;
-}
-
 // auto-grow 高度上下限（px）
 const INPUT_MIN_H = 52;
 const INPUT_MAX_H = 200;
@@ -399,7 +391,7 @@ export default function ChapterPage() {
                 <div key={g.key}>
                   {g.section_number && (
                     <div className="text-muted text-base font-medium mb-2">
-                      {toChineseNum(g.section_number)}{g.section_name ? `、${g.section_name}` : ""}
+                      {g.section_number}{g.section_name ? `、${g.section_name}` : ""}
                     </div>
                   )}
                   <div className="flex flex-col gap-3">
