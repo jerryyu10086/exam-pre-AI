@@ -39,6 +39,22 @@ select:not(:disabled) {
   cursor: pointer;
 }
 
+/* KaTeX 复制行为修复：
+ * 1) mathml 是无障碍辅助层（视觉 clip 隐藏），但浏览器复制 selection 时仍会拿走，
+ *    导致粘贴重复字符（如「基本电荷 e e 是...」）。直接 display:none 干掉。
+ *    代价是屏幕阅读器无法朗读公式——学生场景可接受。
+ * 2) strut / mspace 是撑高占位 span，复制时易产生杂质字符。禁选。 */
+.katex-mathml {
+  display: none !important;
+}
+
+.katex .strut,
+.katex .mspace {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+}
+
 /* 全局滚动条主题化（Chrome/Edge/Safari） */
 ::-webkit-scrollbar {
   width: 12px;
