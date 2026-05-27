@@ -29,7 +29,7 @@ function processKpRefs(node: ReactNode, idx: number): ReactNode {
         key={`kp-${idx}-${m.index}`}
         className="inline-flex items-center bg-background border border-accent/40 text-accent text-xs px-2 py-0.5 rounded-md mx-0.5 whitespace-nowrap align-middle"
       >
-        {m[0]}
+        {m[1]}. {m[2]}
       </span>
     );
     last = m.index + m[0].length;
