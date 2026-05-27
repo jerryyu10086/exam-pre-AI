@@ -167,15 +167,33 @@ export async function POST(request: NextRequest) {
       )
       .join("\n\n");
 
+    // 知识点序号对照表（章号 = ch.order，编号 = 章节内 kp 按 kp_N 升序的位次）
+    const kpTableLines: string[] = [];
+    for (const x of selected) {
+      const sortedKps = [...x.ch.knowledge_points].sort((a, b) => {
+        const ai = parseInt(String(a.id ?? "").replace("kp_", ""), 10);
+        const bi = parseInt(String(b.id ?? "").replace("kp_", ""), 10);
+        return ai - bi;
+      });
+      kpTableLines.push(`【${x.ch.display_name}】`);
+      sortedKps.forEach((kp, i) => {
+        kpTableLines.push(`${x.ch.order}.${i + 1} ${kp.concept}`);
+      });
+    }
+    const kpTableBlock = kpTableLines.length > 0
+      ? `\n知识点序号列表（引用时请使用「（章号.编号. 概念名）」格式）：\n${kpTableLines.join("\n")}\n`
+      : "";
+
     const systemPrompt = `你是备考问答助手，基于以下章节内容回答跨章节问题。
 
 已加载章节：${loadedChapterNames.join("、")}
-
+${kpTableBlock}
 规则：
 1. 优先基于以下章节内容回答，引用时注明章节来源
 2. 若问题超出已加载章节范围，建议"在对应章节详情页的章节对话中提问"
 3. 不要凭空发挥超出课件范围的内容
 4. 所有数学公式使用 $（行内）或 $$（独立行）标注，不使用其他括号形式
+5. 引用知识点时，使用格式「（章号.编号. 概念名）」，例如「（1.5. 库仑定律）」，不要使用 kp_N 格式或其他形式
 
 章节知识库（MAP 结构化内容）：
 ${contextText}

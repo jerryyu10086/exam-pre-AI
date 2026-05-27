@@ -1,12 +1,39 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Children } from "react";
+import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { preprocessMath } from "@/lib/math";
+
+// 全局问答 kp 引用 chip：`（章号.编号. 概念名）`，例如「（1.5. 库仑定律）」
+const KP_REF_RE = /[（(](\d+)[.．](\d+)[.．]\s*([^）)]{1,40})[）)]/g;
+function processKpRefs(node: ReactNode, idx: number): ReactNode {
+  if (typeof node !== "string") return node;
+  KP_REF_RE.lastIndex = 0;
+  if (!KP_REF_RE.test(node)) return node;
+  KP_REF_RE.lastIndex = 0;
+  const parts: ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = KP_REF_RE.exec(node)) !== null) {
+    if (m.index > last) parts.push(node.slice(last, m.index));
+    parts.push(
+      <span
+        key={`kp-${idx}-${m.index}`}
+        className="inline-flex items-center bg-background border border-accent/40 text-accent text-xs px-2 py-0.5 rounded-md mx-0.5 whitespace-nowrap align-middle"
+      >
+        {m[0]}
+      </span>
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < node.length) parts.push(node.slice(last));
+  return parts;
+}
 
 type Message = { id: string; role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string; last_message: string };
@@ -321,7 +348,11 @@ export default function GlobalQAPage() {
                       remarkPlugins={[remarkGfm, remarkMath]}
                       rehypePlugins={[rehypeKatex]}
                       components={{
-                        p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                        p: ({ children }) => (
+                          <p className="mb-2 last:mb-0 leading-relaxed">
+                            {Children.map(children, (child, i) => processKpRefs(child, i))}
+                          </p>
+                        ),
                         strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                         em: ({ children }) => <em className="italic">{children}</em>,
                         ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
