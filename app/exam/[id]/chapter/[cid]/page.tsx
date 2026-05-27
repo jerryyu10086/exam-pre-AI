@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, Children } from "rea
 import type { ReactNode } from "react";
 import TierContent, { type KnowledgePoint } from "@/components/tier-content";
 import ChatInput, { type ChatInputHandle } from "@/components/chat-input";
+import ChatThinking from "@/components/chat-thinking";
 import { useChat } from "@/hooks/useChat";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -487,13 +488,7 @@ export default function ChapterPage() {
               </div>
             </div>
           ))}
-          {sending && (
-            <div className="flex justify-start">
-              <div className="bg-background border border-white/5 rounded-lg px-3 py-2">
-                <p className="text-muted text-sm">正在检索知识库并生成回答...</p>
-              </div>
-            </div>
-          )}
+          {sending && <ChatThinking />}
           <div ref={messagesEndRef} />
           </>
           )}

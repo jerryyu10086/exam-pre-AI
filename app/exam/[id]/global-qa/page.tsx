@@ -9,6 +9,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { preprocessMath } from "@/lib/math";
 import ChatInput from "@/components/chat-input";
+import ChatThinking from "@/components/chat-thinking";
 
 // 全局问答 kp 引用 chip：`（章号.编号. 概念名）`，例如「（1.5. 库仑定律）」
 const KP_REF_RE = /[（(](\d+)[.．](\d+)[.．]\s*([^）)]{1,40})[）)]/g;
@@ -374,13 +375,7 @@ export default function GlobalQAPage() {
                 </div>
               </div>
             ))}
-            {sending && (
-              <div className="flex justify-start">
-                <div className="bg-background border border-white/5 rounded-lg px-3 py-2">
-                  <p className="text-muted text-sm">正在检索知识库并生成回答...</p>
-                </div>
-              </div>
-            )}
+            {sending && <ChatThinking />}
             <div ref={messagesEndRef} />
             </>
             )}
