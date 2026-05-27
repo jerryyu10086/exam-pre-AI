@@ -82,7 +82,6 @@ export default function ChapterPage() {
   const [renameValue, setRenameValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const drawerRef = useRef<HTMLDivElement>(null);
 
   // 加载章节数据
   useEffect(() => {
@@ -133,29 +132,14 @@ export default function ChapterPage() {
     if (isAppend) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 抽屉打开时：1) 锁 body scroll 防双层滚动；2) 跟随 visualViewport 高度（iOS 键盘
-  // 弹起时 dvh/vh 都不缩，必须监听 visualViewport.resize 拿到真实可见高度做 inline 覆盖）
+  // 抽屉打开时锁 body scroll，防止背景双层滚动
+  // 高度由 className 的 top-0 + bottom-0 自动撑满（iOS Safari fixed 元素按
+  // visualViewport 定位，键盘弹起时 bottom 跟随，无需 JS 干预）
   useEffect(() => {
     if (!drawerOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
-    function updateHeight() {
-      const vv = window.visualViewport;
-      if (drawerRef.current && vv) {
-        drawerRef.current.style.height = `${vv.height}px`;
-      }
-    }
-    updateHeight();
-    window.visualViewport?.addEventListener("resize", updateHeight);
-    window.visualViewport?.addEventListener("scroll", updateHeight);
-
-    return () => {
-      document.body.style.overflow = prev;
-      window.visualViewport?.removeEventListener("resize", updateHeight);
-      window.visualViewport?.removeEventListener("scroll", updateHeight);
-      if (drawerRef.current) drawerRef.current.style.height = "";
-    };
+    return () => { document.body.style.overflow = prev; };
   }, [drawerOpen]);
 
   // ── 折叠控制 ──────────────────────────────────────────────
@@ -395,8 +379,7 @@ export default function ChapterPage() {
 
       {/* ── 右侧对话抽屉（手机端全屏次级页面 + 桌面端右侧抽屉） ── */}
       <div
-        ref={drawerRef}
-        className={`fixed top-0 right-0 h-[100dvh] w-full md:w-[560px] bg-card border-l border-white/5 z-50 md:z-30 flex flex-col transition-transform duration-300 will-change-transform ${
+        className={`fixed top-0 right-0 bottom-0 w-full md:w-[560px] bg-card border-l border-white/5 z-50 md:z-30 flex flex-col transition-transform duration-300 will-change-transform ${
           drawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
