@@ -22,7 +22,7 @@ export default function ChatThinking() {
           <span className="thinking-dot" />
           <span className="thinking-dot" />
         </span>
-        <span className="text-muted text-xs">· 已等待 {seconds} 秒</span>
+        <span className="text-muted text-xs">已等待 {seconds} 秒</span>
       </div>
     </div>
   );
