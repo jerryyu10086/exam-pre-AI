@@ -39,6 +39,17 @@ select:not(:disabled) {
   cursor: pointer;
 }
 
+/* iOS Safari input focus auto-zoom 修复：
+ * 当 input/textarea/select 字号 < 16px 时，iOS 会自动放大页面让控件显示更大，
+ * 且 blur 后不缩回，导致页面残留放大状态。统一手机端字号 ≥ 16px 关闭此行为。 */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 /* KaTeX 复制行为修复：
  * 1) mathml 是无障碍辅助层（视觉 clip 隐藏），但浏览器复制 selection 时仍会拿走，
  *    导致粘贴重复字符（如「基本电荷 e e 是...」）。直接 display:none 干掉。
