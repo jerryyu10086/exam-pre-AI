@@ -30,6 +30,15 @@ html {
   overflow-y: scroll;
 }
 
+/* Tailwind v4 取消了按钮默认 cursor:pointer，这里全局恢复 */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label[for],
+summary,
+select:not(:disabled) {
+  cursor: pointer;
+}
+
 /* 全局滚动条主题化（Chrome/Edge/Safari） */
 ::-webkit-scrollbar {
   width: 12px;
