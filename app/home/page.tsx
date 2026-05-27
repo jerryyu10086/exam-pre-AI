@@ -243,61 +243,93 @@ export default function Home() {
 
       {/* Mobile: top tab strip */}
       <nav className="md:hidden border-b border-white/10">
-        <div className="flex overflow-x-auto gap-1.5 px-3 py-2">
-          {!folderEditMode ? (
-            <>
+        {!folderEditMode ? (
+          <div className="flex overflow-x-auto gap-1.5 px-3 py-2">
+            <button
+              onClick={() => setActiveFolderId(null)}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
+                activeFolderId === null
+                  ? "bg-accent/20 text-accent"
+                  : "text-primary/70 hover:text-primary hover:bg-card"
+              }`}
+            >
+              全部
+            </button>
+            <button
+              onClick={() => setActiveFolderId(UNGROUPED)}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
+                activeFolderId === UNGROUPED
+                  ? "bg-accent/20 text-accent"
+                  : "text-primary/70 hover:text-primary hover:bg-card"
+              }`}
+            >
+              未分组
+            </button>
+            {folders.map((folder) => (
               <button
-                onClick={() => setActiveFolderId(null)}
+                key={folder.id}
+                onClick={() => setActiveFolderId(folder.id)}
                 className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
-                  activeFolderId === null
+                  activeFolderId === folder.id
                     ? "bg-accent/20 text-accent"
                     : "text-primary/70 hover:text-primary hover:bg-card"
                 }`}
               >
-                全部
+                {folder.name}
               </button>
-              <button
-                onClick={() => setActiveFolderId(UNGROUPED)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
-                  activeFolderId === UNGROUPED
-                    ? "bg-accent/20 text-accent"
-                    : "text-primary/70 hover:text-primary hover:bg-card"
-                }`}
-              >
-                未分组
-              </button>
-              {folders.map((folder) => (
-                <button
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1 px-3 py-2">
+            {folders.length === 0 ? (
+              <p className="text-muted text-xs py-2">暂无文件夹</p>
+            ) : (
+              folders.map((folder) => (
+                <div
                   key={folder.id}
-                  onClick={() => setActiveFolderId(folder.id)}
-                  className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
-                    activeFolderId === folder.id
-                      ? "bg-accent/20 text-accent"
-                      : "text-primary/70 hover:text-primary hover:bg-card"
+                  className={`flex items-center gap-2 rounded-md px-2 py-2 transition-colors ${
+                    selectedFolders.has(folder.id) ? "bg-accent/10" : "bg-card"
                   }`}
                 >
-                  {folder.name}
-                </button>
-              ))}
-            </>
-          ) : (
-            <>
-              {folders.map((folder) => (
-                <button
-                  key={folder.id}
-                  onClick={() => toggleSelectFolder(folder.id)}
-                  className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors border ${
-                    selectedFolders.has(folder.id)
-                      ? "bg-accent/20 text-accent border-accent/40"
-                      : "text-primary/70 border-white/10 hover:bg-card hover:text-primary"
-                  }`}
-                >
-                  {folder.name}
-                </button>
-              ))}
-            </>
-          )}
-        </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedFolders.has(folder.id)}
+                    onChange={() => toggleSelectFolder(folder.id)}
+                    className="accent-accent w-4 h-4 shrink-0 cursor-pointer"
+                  />
+                  {renamingId === folder.id ? (
+                    <input
+                      ref={renameInputRef}
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename();
+                        if (e.key === "Escape") setRenamingId(null);
+                      }}
+                      onBlur={commitRename}
+                      className="flex-1 min-w-0 bg-background rounded px-2 py-1 text-primary text-sm outline-none ring-1 ring-accent/50"
+                    />
+                  ) : (
+                    <span
+                      className="flex-1 min-w-0 text-primary text-sm truncate cursor-default"
+                      onDoubleClick={() => startRename(folder)}
+                      title="双击改名"
+                    >
+                      {folder.name}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => startRename(folder)}
+                    className="shrink-0 text-muted hover:text-accent text-sm px-2 py-0.5 transition-colors"
+                    title="改名"
+                  >
+                    ✎
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
         <div className="flex items-center gap-2 px-3 pb-2">
           {folderEditMode ? (
             <>
@@ -322,7 +354,7 @@ export default function Home() {
                 onClick={() => setCreatingFolder(true)}
                 className="text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1.5 hover:bg-card transition-colors"
               >
-                + 新建文件夹
+                + 新建
               </button>
               {folders.length > 0 && (
                 <button

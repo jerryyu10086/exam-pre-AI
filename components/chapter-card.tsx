@@ -66,7 +66,7 @@ export default function ChapterCard({
                 {names.map((name, i) => (
                   <span
                     key={i}
-                    className="inline-flex items-center gap-1 whitespace-nowrap bg-background border border-white/10 text-muted text-sm px-2.5 py-1 rounded-md"
+                    className="inline-flex items-center gap-1 whitespace-normal break-words md:whitespace-nowrap bg-background border border-white/10 text-muted text-sm px-2.5 py-1 rounded-md"
                   >
                     {name}
                     {keyFocusConcepts?.has(name) && (
