@@ -47,7 +47,6 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (error) { setError("验证码错误或已过期，请重试"); return; }
-    await fetch("/api/seed-demo", { method: "POST" });
     router.replace("/home");
   }
 
