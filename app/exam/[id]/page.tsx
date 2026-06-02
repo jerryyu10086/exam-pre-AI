@@ -2,6 +2,7 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { isDemoModeBrowser } from "@/lib/demo";
 
 type FileCounts = { slides: number; exam: number; textbook: number };
 
@@ -17,6 +18,8 @@ export default function ExamDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
 
+  const [isDemo, setIsDemo] = useState(false);
+  useEffect(() => { setIsDemo(isDemoModeBrowser()); }, []);
   const [examName, setExamName] = useState("");
   const [counts, setCounts] = useState<FileCounts>({ slides: 0, exam: 0, textbook: 0 });
   const [hasPlan, setHasPlan] = useState(false);
@@ -119,10 +122,10 @@ export default function ExamDetailPage() {
 
         <div className="flex flex-col gap-3">
           <Link
-            href={canAnalyze ? `/exam/${params.id}/plan` : "#"}
-            onClick={(e) => { if (!canAnalyze) e.preventDefault(); }}
+            href={canAnalyze && !isDemo ? `/exam/${params.id}/plan` : "#"}
+            onClick={(e) => { if (!canAnalyze || isDemo) e.preventDefault(); }}
             className={`block w-full text-center rounded-md py-2 text-sm font-medium transition-colors ${
-              canAnalyze
+              canAnalyze && !isDemo
                 ? "bg-accent hover:bg-accent-hover text-primary"
                 : "bg-card border border-white/5 text-muted opacity-50 cursor-not-allowed"
             }`}
