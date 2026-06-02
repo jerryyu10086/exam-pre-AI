@@ -1,13 +1,23 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { createBrowserClient } from "@supabase/ssr";
+import { useRouter } from "next/navigation";
+import { DEMO_COOKIE } from "@/lib/demo";
 
 type Folder = { id: string; name: string };
-type Exam = { id: string; name: string; folder_id: string | null };
+type Exam = { id: string; name: string; folder_id: string | null; is_demo?: boolean };
 
 const UNGROUPED = "__ungrouped__";
 
 export default function Home() {
+  const router = useRouter();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
@@ -45,6 +55,22 @@ export default function Home() {
   const [renamingExamId, setRenamingExamId] = useState<string | null>(null);
   const [renameExamValue, setRenameExamValue] = useState("");
   const renameExamInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const demo = document.cookie.includes(`${DEMO_COOKIE}=1`);
+    setIsDemoMode(demo);
+    if (!demo) {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        setUserEmail(user?.email ?? null);
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.replace("/login");
+  }
 
   useEffect(() => {
     // 先读缓存立即渲染，消除空白闪烁
@@ -251,14 +277,14 @@ export default function Home() {
               <>
                 {selectedFolders.size > 0 && (
                   <button
-                    onClick={() => setFolderDeleteModal(folders.filter((f) => selectedFolders.has(f.id)))}
+                    onClick={isDemoMode ? undefined : () => setFolderDeleteModal(folders.filter((f) => selectedFolders.has(f.id)))}
                     className="text-sm text-tier-must border border-tier-must/30 rounded-md px-3 py-1 hover:bg-tier-must/10 transition-colors"
                   >
                     删除({selectedFolders.size})
                   </button>
                 )}
                 <button
-                  onClick={toggleFolderEditMode}
+                  onClick={isDemoMode ? undefined : toggleFolderEditMode}
                   className="text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1 hover:bg-card transition-colors"
                 >
                   完成
@@ -268,14 +294,14 @@ export default function Home() {
               <>
                 {folders.length > 0 && (
                   <button
-                    onClick={toggleFolderEditMode}
+                    onClick={isDemoMode ? undefined : toggleFolderEditMode}
                     className="text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1 hover:bg-card transition-colors"
                   >
                     编辑
                   </button>
                 )}
                 <button
-                  onClick={() => setCreatingFolder(true)}
+                  onClick={isDemoMode ? undefined : () => setCreatingFolder(true)}
                   className="text-sm text-primary/70 hover:text-primary border border-white/10 rounded-md px-3 py-1 hover:bg-card transition-colors"
                 >
                   + 新建
@@ -466,14 +492,14 @@ export default function Home() {
             <div className="flex items-center gap-1">
               {selectedFolders.size > 0 && (
                 <button
-                  onClick={() => setFolderDeleteModal(folders.filter((f) => selectedFolders.has(f.id)))}
+                  onClick={isDemoMode ? undefined : () => setFolderDeleteModal(folders.filter((f) => selectedFolders.has(f.id)))}
                   className="flex-1 text-center px-2 py-1.5 text-sm text-tier-must hover:bg-tier-must/10 rounded-md transition-colors"
                 >
                   删除({selectedFolders.size})
                 </button>
               )}
               <button
-                onClick={toggleFolderEditMode}
+                onClick={isDemoMode ? undefined : toggleFolderEditMode}
                 className="flex-1 text-center px-2 py-1.5 text-primary/70 hover:text-primary text-sm hover:bg-card rounded-md transition-colors"
               >
                 完成
@@ -482,14 +508,14 @@ export default function Home() {
           ) : (
             <div className="flex items-center gap-1">
               <button
-                onClick={() => setCreatingFolder(true)}
+                onClick={isDemoMode ? undefined : () => setCreatingFolder(true)}
                 className="flex-1 text-center px-2 py-1.5 text-primary/70 hover:text-primary text-sm hover:bg-card rounded-md transition-colors"
               >
                 + 新建
               </button>
               {folders.length > 0 && (
                 <button
-                  onClick={toggleFolderEditMode}
+                  onClick={isDemoMode ? undefined : toggleFolderEditMode}
                   className="flex-1 text-center px-2 py-1.5 text-primary/70 hover:text-primary text-sm hover:bg-card rounded-md transition-colors"
                 >
                   编辑
@@ -502,6 +528,35 @@ export default function Home() {
 
       {/* 右侧主区域 */}
       <main className="flex-1 p-4 md:p-6">
+        {/* 演示模式横幅 */}
+        {isDemoMode && (
+          <div className="flex items-center justify-between gap-3 mb-4 bg-accent/10 border border-accent/20 rounded-lg px-4 py-2.5">
+            <p className="text-accent text-xs">演示模式 · 编辑操作已禁用，注册后可创建学科、上传文件、对话提问</p>
+            <Link
+              href="/login"
+              onClick={() => { document.cookie = `${DEMO_COOKIE}=; path=/; max-age=0`; }}
+              className="shrink-0 bg-accent hover:bg-accent-hover text-primary rounded-md px-3 py-1 text-xs font-medium transition-colors"
+            >
+              立即注册
+            </Link>
+          </div>
+        )}
+
+        {/* 顶部用户栏 */}
+        {!isDemoMode && (
+          <div className="flex items-center justify-end gap-3 mb-4 md:mb-5">
+            {userEmail && (
+              <span className="text-muted text-xs truncate max-w-[180px]">{userEmail}</span>
+            )}
+            <button
+              onClick={handleLogout}
+              className="text-xs text-muted hover:text-primary border border-white/10 rounded-md px-2.5 py-1 hover:bg-card transition-colors shrink-0"
+            >
+              退出登录
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between flex-wrap gap-x-4 gap-y-2 mb-4 md:mb-6">
           <h1 className="text-primary font-semibold text-base">{mainTitle}</h1>
           <div className="flex items-center gap-2">
@@ -531,7 +586,7 @@ export default function Home() {
             )}
             {filteredExams.length > 0 && (
               <button
-                onClick={toggleEditMode}
+                onClick={isDemoMode ? undefined : toggleEditMode}
                 className="text-sm text-primary/70 border border-white/10 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/20 transition-colors"
               >
                 {editMode ? "完成" : "编辑"}
@@ -539,7 +594,7 @@ export default function Home() {
             )}
             {!editMode && (
               <button
-                onClick={() => setCreatingExam(true)}
+                onClick={isDemoMode ? undefined : () => setCreatingExam(true)}
                 className="bg-accent hover:bg-accent-hover text-primary rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
               >
                 + 创建学科

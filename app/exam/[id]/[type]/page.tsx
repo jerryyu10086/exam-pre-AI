@@ -3,6 +3,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useRef, useEffect, useState } from "react";
 import { useFileUpload } from "@/hooks/useFileUpload";
+import { isDemoModeBrowser } from "@/lib/demo";
 
 const LABELS: Record<string, string> = {
   slides: "课件",
@@ -27,6 +28,8 @@ export default function UploadPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null);
   const [hasPlan, setHasPlan] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
+  useEffect(() => { setIsDemo(isDemoModeBrowser()); }, []);
 
   const {
     pendingFiles, status, message, addFiles, removeFile, togglePendingHasAnswers, saveToKnowledgeBase, cancelUpload,
@@ -89,22 +92,24 @@ export default function UploadPage() {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <p className="text-muted text-xs">已在知识库</p>
-              <div className="flex items-center gap-2">
-                {editMode && (
+              {!isDemo && (
+                <div className="flex items-center gap-2">
+                  {editMode && (
+                    <button
+                      onClick={toggleSelectAll}
+                      className="text-sm text-primary/70 border border-white/10 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/20 transition-colors"
+                    >
+                      {selected.size === uploadedFiles.length ? "取消全选" : "全选"}
+                    </button>
+                  )}
                   <button
-                    onClick={toggleSelectAll}
+                    onClick={toggleEditMode}
                     className="text-sm text-primary/70 border border-white/10 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/20 transition-colors"
                   >
-                    {selected.size === uploadedFiles.length ? "取消全选" : "全选"}
+                    {editMode ? "完成" : "编辑"}
                   </button>
-                )}
-                <button
-                  onClick={toggleEditMode}
-                  className="text-sm text-primary/70 border border-white/10 rounded-md px-3 py-1.5 hover:text-primary hover:border-white/20 transition-colors"
-                >
-                  {editMode ? "完成" : "编辑"}
-                </button>
-              </div>
+                </div>
+              )}
             </div>
             <div className="flex flex-col gap-2">
               {uploadedFiles.map((file) => (
@@ -161,8 +166,16 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* 上传区（编辑模式隐藏） */}
-        {!editMode && (
+        {/* 演示模式提示 */}
+        {isDemo && (
+          <div className="bg-accent/10 border border-accent/20 rounded-lg px-4 py-3 mb-6 flex items-center justify-between gap-3">
+            <p className="text-accent text-sm">演示模式 · 注册后可上传、删除文件</p>
+            <Link href="/login" className="shrink-0 text-xs bg-accent hover:bg-accent-hover text-primary rounded-md px-3 py-1.5 transition-colors">立即注册</Link>
+          </div>
+        )}
+
+        {/* 上传区（编辑模式或演示模式隐藏） */}
+        {!editMode && !isDemo && (
           <>
             <div
               className="border-2 border-dashed border-white/10 rounded-lg p-10 text-center mb-4 cursor-pointer hover:border-accent/40 transition-colors bg-card"

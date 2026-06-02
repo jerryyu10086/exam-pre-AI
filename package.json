@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.1",
     "katex": "^0.16.47",
     "mammoth": "^1.12.0",

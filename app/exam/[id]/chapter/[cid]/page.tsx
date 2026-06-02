@@ -7,6 +7,7 @@ import TierContent, { type KnowledgePoint } from "@/components/tier-content";
 import ChatInput, { type ChatInputHandle } from "@/components/chat-input";
 import ChatThinking from "@/components/chat-thinking";
 import { useChat } from "@/hooks/useChat";
+import { isDemoModeBrowser } from "@/lib/demo";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -62,6 +63,8 @@ export default function ChapterPage() {
   const chapterOrder = parseInt(params.cid);
 
   // ── 章节数据 ──────────────────────────────────────────────
+  const [isDemo, setIsDemo] = useState(false);
+  useEffect(() => { setIsDemo(isDemoModeBrowser()); }, []);
   const [chapter, setChapter] = useState<FileEntry | null>(null);
   const [loadError, setLoadError] = useState("");
 
@@ -398,7 +401,7 @@ export default function ChapterPage() {
         {/* 对话卡片列表 */}
         <div className="chat-scrollbar flex gap-2 overflow-x-auto px-4 py-3 border-b border-white/5 shrink-0">
           <button
-            onClick={() => { resetConversation(); chatInputRef.current?.setValue(""); }}
+            onClick={isDemo ? undefined : () => { resetConversation(); chatInputRef.current?.setValue(""); }}
             className="shrink-0 w-24 bg-background border border-white/5 hover:border-white/15 rounded-lg p-2.5 flex items-center justify-center text-muted hover:text-primary transition-colors text-xs"
           >
             + 新建
@@ -428,13 +431,13 @@ export default function ChapterPage() {
               )}
               <div className="flex gap-2 mt-1.5">
                 <button
-                  onClick={(e) => { e.stopPropagation(); startRename(conv); }}
+                  onClick={isDemo ? undefined : (e) => { e.stopPropagation(); startRename(conv); }}
                   className="text-muted text-xs hover:text-primary transition-colors"
                 >
                   改名
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setConfirmDelete([conv.id]); }}
+                  onClick={isDemo ? undefined : (e) => { e.stopPropagation(); setConfirmDelete([conv.id]); }}
                   className="text-muted text-xs hover:text-tier-must transition-colors"
                 >
                   删除
@@ -506,7 +509,14 @@ export default function ChapterPage() {
         </div>
 
         {/* 输入区 */}
-        <ChatInput ref={chatInputRef} onSend={sendMessage} onStop={stopSending} sending={sending} />
+        {isDemo ? (
+          <div className="border-t border-white/5 p-3 flex items-center justify-between gap-3">
+            <p className="text-muted text-xs">演示模式 · 注册后解锁对话功能</p>
+            <a href="/login" className="shrink-0 text-xs bg-accent hover:bg-accent-hover text-primary rounded-md px-3 py-1.5 transition-colors">立即注册</a>
+          </div>
+        ) : (
+          <ChatInput ref={chatInputRef} onSend={sendMessage} onStop={stopSending} sending={sending} />
+        )}
       </div>
 
       {/* 删除确认弹窗 */}

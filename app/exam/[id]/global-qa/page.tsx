@@ -9,6 +9,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { preprocessMath } from "@/lib/math";
 import ChatInput from "@/components/chat-input";
+import { isDemoModeBrowser } from "@/lib/demo";
 import ChatThinking from "@/components/chat-thinking";
 
 // 检测 AI 引用格式「（N. 概念名）」，渲染为 chip
@@ -44,6 +45,8 @@ type Conversation = { id: string; title: string; last_message: string };
 export default function GlobalQAPage() {
   const params = useParams<{ id: string }>();
 
+  const [isDemo, setIsDemo] = useState(false);
+  useEffect(() => { setIsDemo(isDemoModeBrowser()); }, []);
   const [examName, setExamName] = useState("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
@@ -265,7 +268,7 @@ export default function GlobalQAPage() {
         {/* 对话卡片列表 */}
         <div className="chat-scrollbar flex gap-2 overflow-x-auto pb-2 mb-4">
           <button
-            onClick={resetConversation}
+            onClick={isDemo ? undefined : resetConversation}
             className="shrink-0 w-28 bg-card border border-white/5 hover:border-white/15 rounded-lg p-3 flex items-center justify-center text-muted hover:text-primary transition-colors text-sm"
           >
             + 新建
@@ -297,13 +300,13 @@ export default function GlobalQAPage() {
               )}
               <div className="flex gap-2 mt-2">
                 <button
-                  onClick={(e) => { e.stopPropagation(); startRename(conv); }}
+                  onClick={isDemo ? undefined : (e) => { e.stopPropagation(); startRename(conv); }}
                   className="text-muted text-xs hover:text-primary transition-colors"
                 >
                   改名
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setConfirmDelete(conv.id); }}
+                  onClick={isDemo ? undefined : (e) => { e.stopPropagation(); setConfirmDelete(conv.id); }}
                   className="text-muted text-xs hover:text-tier-must transition-colors"
                 >
                   删除
@@ -382,12 +385,19 @@ export default function GlobalQAPage() {
             )}
           </div>
 
-          <ChatInput
-            onSend={sendMessage}
-            onStop={stopSending}
-            sending={sending}
-            placeholder="输入跨章节问题，Enter 发送，Shift+Enter 换行"
-          />
+          {isDemo ? (
+            <div className="border-t border-white/5 p-3 flex items-center justify-between gap-3">
+              <p className="text-muted text-xs">演示模式 · 注册后解锁对话功能</p>
+              <a href="/login" className="shrink-0 text-xs bg-accent hover:bg-accent-hover text-primary rounded-md px-3 py-1.5 transition-colors">立即注册</a>
+            </div>
+          ) : (
+            <ChatInput
+              onSend={sendMessage}
+              onStop={stopSending}
+              sending={sending}
+              placeholder="输入跨章节问题，Enter 发送，Shift+Enter 换行"
+            />
+          )}
         </div>
       </div>
 
