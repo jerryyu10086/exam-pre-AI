@@ -34,7 +34,7 @@ export default function LoginPage() {
 
   function enterDemo() {
     document.cookie = `${DEMO_COOKIE}=1; path=/; max-age=86400`;
-    router.replace("/home");
+    window.location.href = "/home";
   }
 
   async function verifyCode() {

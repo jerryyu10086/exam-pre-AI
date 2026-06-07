@@ -73,9 +73,12 @@ export default function Home() {
   }
 
   useEffect(() => {
+    const isDemo = document.cookie.includes(`${DEMO_COOKIE}=1`);
+    const cacheKey = isDemo ? "p1_cache_demo" : "p1_cache_user";
+
     // 先读缓存立即渲染，消除空白闪烁
     try {
-      const cached = sessionStorage.getItem("p1_cache");
+      const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
         const { folders: f, exams: e } = JSON.parse(cached);
         if (Array.isArray(f)) setFolders(f);
@@ -93,7 +96,7 @@ export default function Home() {
       setFolders(folders);
       setExams(exams);
       try {
-        sessionStorage.setItem("p1_cache", JSON.stringify({ folders, exams }));
+        sessionStorage.setItem(cacheKey, JSON.stringify({ folders, exams }));
       } catch {}
     });
   }, []);
@@ -242,6 +245,7 @@ export default function Home() {
     const deletedSet = new Set(confirmDeleteExams);
     setExams((prev) => prev.filter((e) => !deletedSet.has(e.id)));
     setSelectedExams(new Set());
+    setEditMode(false);
     setDeleting(false);
     setConfirmDeleteExams(null);
   }

@@ -21,7 +21,6 @@ function CallbackHandler() {
       done = true;
       if (session) {
         setStatus("登录成功，跳转中...");
-        await fetch("/api/seed-demo", { method: "POST" });
         router.replace("/home");
       } else {
         setStatus("验证失败，请重新登录");
