@@ -4,11 +4,65 @@ import Link from "next/link";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import { DEMO_COOKIE } from "@/lib/demo";
+import SpotlightCard from "@/components/spotlight-card";
 
+type MaterialCounts = { slides: number; exam: number; textbook: number };
 type Folder = { id: string; name: string };
-type Exam = { id: string; name: string; folder_id: string | null; is_demo?: boolean };
+type Exam = {
+  id: string;
+  name: string;
+  folder_id: string | null;
+  is_demo?: boolean;
+  counts?: MaterialCounts;
+};
 
 const UNGROUPED = "__ungrouped__";
+
+// 由学科名哈希出一个稳定的渐变角度（90°~210°）——只变角度不变颜色，
+// 让每张卡的 accent 封面有细微差异，不引入杂色（遵守"只用暗紫配色"约束）
+function gradientAngle(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return 90 + (h % 120);
+}
+
+// 封面文件数三栏：课件 / 真题 / 课本
+const MATERIAL_ROWS = [
+  ["课件", "slides"],
+  ["真题", "exam"],
+  ["课本", "textbook"],
+] as const;
+
+// 学科封面：深紫质感 + 噪点 + 仪表盘式三栏文件数（展示态/编辑态共用）
+// 聚光/上浮由外层 SpotlightCard 提供
+function ExamCover({ exam }: { exam: Exam }) {
+  return (
+    <div
+      className="icon-pop relative aspect-[3/2] rounded-xl flex items-center justify-center overflow-hidden border border-white/5"
+      style={{
+        background: `radial-gradient(130% 110% at 22% 10%, color-mix(in srgb, var(--color-accent) 40%, transparent), transparent 58%), linear-gradient(${gradientAngle(exam.name)}deg, color-mix(in srgb, var(--color-accent) 18%, var(--color-card)), color-mix(in srgb, var(--color-accent-hover) 6%, var(--color-card)))`,
+        boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.08)",
+      }}
+    >
+      {/* 极淡噪点，消除大色块平涂感 */}
+      <div className="grain rounded-xl" aria-hidden="true" />
+      {/* 仪表盘式三栏大数字 */}
+      <div className="relative z-[1] flex items-stretch divide-x divide-white/10">
+        {MATERIAL_ROWS.map(([label, key]) => {
+          const n = exam.counts?.[key] ?? 0;
+          return (
+            <div key={key} className="flex flex-col items-center gap-1 px-4">
+              <span className={`text-2xl font-semibold leading-none tabular-nums ${n > 0 ? "text-white" : "text-white/25"}`}>
+                {n}
+              </span>
+              <span className="text-[11px] tracking-wide text-white/50">{label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   const router = useRouter();
@@ -269,7 +323,7 @@ export default function Home() {
 
   // ── render ───────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+    <div className="min-h-screen flex flex-col md:flex-row">
 
       {/* Mobile: top header — 标题 + 操作按钮（一行）+ 横向 chip（二行） */}
       <nav className="md:hidden border-b border-white/10">
@@ -539,7 +593,7 @@ export default function Home() {
             <Link
               href="/login"
               onClick={() => { document.cookie = `${DEMO_COOKIE}=; path=/; max-age=0`; }}
-              className="shrink-0 bg-accent hover:bg-accent-hover text-primary rounded-md px-3 py-1 text-xs font-medium transition-colors"
+              className="shrink-0 btn-glow text-primary rounded-md px-3 py-1 text-xs font-medium transition-colors"
             >
               立即注册
             </Link>
@@ -599,7 +653,7 @@ export default function Home() {
             {!editMode && (
               <button
                 onClick={isDemoMode ? undefined : () => setCreatingExam(true)}
-                className="bg-accent hover:bg-accent-hover text-primary rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                className="btn-glow text-primary rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
               >
                 + 创建学科
               </button>
@@ -610,22 +664,37 @@ export default function Home() {
         {filteredExams.length === 0 ? (
           <p className="text-muted text-sm">暂无学科，点击右上角创建</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 md:gap-5">
             {filteredExams.map((exam) =>
               editMode ? (
                 <div
                   key={exam.id}
-                  className={`bg-card border rounded-lg p-4 transition-colors ${
-                    selectedExams.has(exam.id) ? "border-accent" : "border-white/5"
-                  }`}
+                  className="glass rounded-2xl p-3.5 h-full flex flex-col gap-4 relative"
                 >
+                  {/* 选中态描边（覆盖层，不与 glass 边框/阴影冲突） */}
+                  {selectedExams.has(exam.id) && (
+                    <div className="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-accent" />
+                  )}
+                  {/* 封面 + 左上角勾选框（点封面也可勾选） */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectExam(exam.id)}
+                      className="block w-full text-left"
+                    >
+                      <ExamCover exam={exam} />
+                    </button>
+                    <label className="absolute top-2 left-2 z-[2] flex items-center justify-center bg-black/45 rounded-md p-1 backdrop-blur-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedExams.has(exam.id)}
+                        onChange={() => toggleSelectExam(exam.id)}
+                        className="accent-accent w-4 h-4 shrink-0 block cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                  {/* 学科名（可 inline 改名） */}
                   <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedExams.has(exam.id)}
-                      onChange={() => toggleSelectExam(exam.id)}
-                      className="accent-accent w-4 h-4 shrink-0 cursor-pointer"
-                    />
                     {renamingExamId === exam.id ? (
                       <input
                         ref={renameExamInputRef}
@@ -636,7 +705,7 @@ export default function Home() {
                           if (e.key === "Escape") setRenamingExamId(null);
                         }}
                         onBlur={commitRenameExam}
-                        className="flex-1 min-w-0 bg-background rounded px-1.5 py-0 text-primary text-sm outline-none ring-1 ring-accent/50"
+                        className="flex-1 min-w-0 bg-background rounded px-1.5 py-1 text-primary text-sm outline-none ring-1 ring-accent/50"
                       />
                     ) : (
                       <p className="flex-1 min-w-0 text-primary text-sm font-medium truncate">{exam.name}</p>
@@ -651,10 +720,19 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
-                <Link key={exam.id} href={`/exam/${exam.id}`}>
-                  <div className="bg-card border border-white/5 rounded-lg p-4 hover:bg-card-hover transition-colors cursor-pointer">
-                    <p className="text-primary text-sm font-medium truncate">{exam.name}</p>
-                  </div>
+                <Link key={exam.id} href={`/exam/${exam.id}`} className="block h-full">
+                  <SpotlightCard className="glass u-lift rounded-2xl p-3.5 h-full cursor-pointer">
+                    <ExamCover exam={exam} />
+                    {/* 学科名 + 文件夹标签 */}
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-primary text-sm font-medium leading-snug line-clamp-2">{exam.name}</p>
+                      {activeFolderId === null && exam.folder_id && (
+                        <span className="self-start text-muted text-xs bg-white/5 rounded px-1.5 py-0.5">
+                          {folders.find((f) => f.id === exam.folder_id)?.name}
+                        </span>
+                      )}
+                    </div>
+                  </SpotlightCard>
                 </Link>
               )
             )}
@@ -667,7 +745,7 @@ export default function Home() {
       {/* 创建文件夹 */}
       {creatingFolder && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 w-full max-w-sm mx-4">
+          <div className="glass rounded-xl p-6 w-full max-w-sm mx-4">
             <p className="text-primary font-medium text-sm mb-4">新建文件夹</p>
             <input
               ref={folderInputRef}
@@ -690,7 +768,7 @@ export default function Home() {
               <button
                 onClick={handleCreateFolder}
                 disabled={!folderName.trim()}
-                className="flex-1 bg-accent hover:bg-accent-hover disabled:opacity-50 text-primary rounded-md py-2 text-sm font-medium transition-colors"
+                className="flex-1 btn-glow disabled:opacity-50 text-primary rounded-md py-2 text-sm font-medium transition-colors"
               >
                 创建
               </button>
@@ -702,7 +780,7 @@ export default function Home() {
       {/* 创建学科 */}
       {creatingExam && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 w-full max-w-sm mx-4">
+          <div className="glass rounded-xl p-6 w-full max-w-sm mx-4">
             <p className="text-primary font-medium text-sm mb-4">新建学科</p>
             <input
               ref={examInputRef}
@@ -725,7 +803,7 @@ export default function Home() {
               <button
                 onClick={handleCreateExam}
                 disabled={!examName.trim()}
-                className="flex-1 bg-accent hover:bg-accent-hover disabled:opacity-50 text-primary rounded-md py-2 text-sm font-medium transition-colors"
+                className="flex-1 btn-glow disabled:opacity-50 text-primary rounded-md py-2 text-sm font-medium transition-colors"
               >
                 创建
               </button>
@@ -737,7 +815,7 @@ export default function Home() {
       {/* 删除学科确认 */}
       {confirmDeleteExams && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 max-w-sm w-full mx-4">
+          <div className="glass rounded-xl p-6 max-w-sm w-full mx-4">
             <p className="text-primary text-sm font-medium mb-2">确认删除？</p>
             <p className="text-muted text-xs mb-6">
               将删除 {confirmDeleteExams.length} 个学科及其全部材料、复习计划和对话记录，此操作不可撤销。
@@ -764,7 +842,7 @@ export default function Home() {
       {/* 删除文件夹确认 */}
       {folderDeleteModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 max-w-sm w-full mx-4">
+          <div className="glass rounded-xl p-6 max-w-sm w-full mx-4">
             <p className="text-primary text-sm font-medium mb-1">
               删除 {folderDeleteModal.length} 个文件夹？
             </p>

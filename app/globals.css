@@ -23,11 +23,23 @@
 body {
   background-color: var(--color-background);
   color: var(--color-primary);
-  font-family: Arial, Helvetica, sans-serif;
+  /* 之前这里写死 Arial，把 layout.tsx 引入的 Geist 覆盖没生效——改回变量字体 */
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  position: relative;
 }
 
 html {
   overflow-y: scroll;
+}
+
+/* 锚点跳转平滑滚动（"了解更多"等），尊重减少动效偏好 */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 /* Tailwind v4 取消了按钮默认 cursor:pointer，这里全局恢复 */
@@ -48,6 +60,21 @@ select:not(:disabled) {
   select {
     font-size: 16px;
   }
+}
+
+/* 浏览器自动填充修复：
+ * Chrome/Safari 对 autofill 的 input 会强制刷成白/黄底（覆盖我们的暗色 bg）。
+ * 用 inset box-shadow 盖住其背景层 + text-fill-color 保持文字可读；
+ * 超长 transition 延迟进一步压掉 autofill 那一下的黄底闪烁。 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--color-primary);
+  caret-color: var(--color-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-background) inset;
+  box-shadow: 0 0 0 1000px var(--color-background) inset;
+  transition: background-color 9999s ease-in-out 0s;
 }
 
 /* KaTeX 复制行为修复：
@@ -163,3 +190,202 @@ select:not(:disabled) {
 
 .thinking-dot:nth-child(2) { animation-delay: 0.15s; }
 .thinking-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* ══════════════════════════════════════════════════════════════
+ * 质感令牌（framer 风格）——全站可复用的高级感工具类
+ * 只用现有暗紫配色，靠光影/玻璃/渐变/微交互提升质感，不改颜色体系。
+ * ══════════════════════════════════════════════════════════════ */
+
+/* ── 玻璃拟态卡片 ──────────────────────────────────────────────
+ * 半透明卡片 + 背景模糊 + 顶部高光内发光 + 精致边框。
+ * 用法：class="glass rounded-2xl p-6"（替代旧的 bg-card border-white/5） */
+.glass {
+  background: color-mix(in srgb, var(--color-card) 72%, transparent);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, #ffffff 8%, transparent);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, #ffffff 6%, transparent) inset,
+    0 20px 40px -24px rgba(0, 0, 0, 0.7);
+}
+
+/* 强调玻璃卡：边框带一点 accent，用于要突出的卡片 */
+.glass-accent {
+  background: color-mix(in srgb, var(--color-card) 72%, transparent);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--color-accent) 14%, transparent) inset,
+    0 24px 48px -28px color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+/* ── 悬浮微交互 ────────────────────────────────────────────────
+ * hover 时轻微上浮 + 阴影加深 + 边框提亮，制造"活"的高级感 */
+.u-lift {
+  transition:
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.25s ease;
+  will-change: transform;
+}
+.u-lift:hover {
+  transform: translateY(-5px) scale(1.015);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, #ffffff 10%, transparent) inset,
+    0 34px 64px -28px color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+/* ── 光标跟随聚光卡 ────────────────────────────────────────────
+ * 配合 components/spotlight-card.tsx。鼠标在卡内移动时，一束柔光
+ * 跟随光标位置淡入，制造"模块随手感响应"的高级互动层次。 */
+.spotlight-card {
+  position: relative;
+  isolation: isolate;
+}
+.spotlight-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background: radial-gradient(
+    18rem 18rem at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--color-accent) 32%, transparent),
+    transparent 60%
+  );
+}
+.spotlight-card:hover .spotlight-glow {
+  opacity: 1;
+}
+
+/* ── 图标微动 ──────────────────────────────────────────────────
+ * 卡片 hover 时图标底座轻微放大+回弹倾斜，给静态图标注入生命感。
+ * 需父级带 Tailwind `group` 类（SpotlightCard 默认已加）。 */
+.icon-pop {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.group:hover .icon-pop {
+  transform: scale(1.08) rotate(-4deg);
+}
+
+/* ── 渐变文字 ──────────────────────────────────────────────────
+ * 用于大标题，紫→浅紫→接近白的渐变，比纯色 accent 更有质感 */
+.text-gradient {
+  background: linear-gradient(
+    135deg,
+    #c4b5fd 0%,
+    var(--color-accent) 45%,
+    #e9d5ff 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* ── 发光按钮 ──────────────────────────────────────────────────
+ * accent 实心 + 柔光晕 + hover 光晕增强，主 CTA 用 */
+.btn-glow {
+  /* 不设 position，避免影响绝对定位按钮；需要定位的调用方自行加 relative */
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
+  /* 去掉紫色外发光，只留顶部内高光；避免背景泛紫 */
+  box-shadow: 0 1px 0 0 color-mix(in srgb, #ffffff 25%, transparent) inset;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+.btn-glow:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+}
+.btn-glow:active { transform: translateY(0); }
+
+/* ── 极光光斑（Hero 背景动效）─────────────────────────────────
+ * 大尺寸高斯模糊圆斑，缓慢漂移，营造流动的高级氛围。
+ * 用法：<div class="aurora aurora-1" /> 放在相对定位容器内 */
+.aurora {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.55;
+  pointer-events: none;
+  will-change: transform;
+}
+.aurora-1 {
+  width: 32rem;
+  height: 32rem;
+  background: radial-gradient(circle, var(--color-accent), transparent 70%);
+  animation: aurora-drift-1 18s ease-in-out infinite alternate;
+}
+.aurora-2 {
+  width: 26rem;
+  height: 26rem;
+  background: radial-gradient(circle, #6366f1, transparent 70%);
+  animation: aurora-drift-2 22s ease-in-out infinite alternate;
+}
+.aurora-3 {
+  width: 22rem;
+  height: 22rem;
+  background: radial-gradient(circle, #d946ef, transparent 70%);
+  animation: aurora-drift-3 26s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-drift-1 {
+  from { transform: translate(-8%, -6%) scale(1); }
+  to   { transform: translate(10%, 8%) scale(1.15); }
+}
+@keyframes aurora-drift-2 {
+  from { transform: translate(6%, -10%) scale(1.1); }
+  to   { transform: translate(-10%, 6%) scale(0.95); }
+}
+@keyframes aurora-drift-3 {
+  from { transform: translate(-6%, 10%) scale(0.9); }
+  to   { transform: translate(8%, -8%) scale(1.1); }
+}
+
+/* ── 细颗粒噪点叠层 ────────────────────────────────────────────
+ * 极淡的胶片颗粒，消除大面积纯色的"廉价数码感"，是高级感的隐形功臣。
+ * 用法：把 .grain 放在需要的 section 里（absolute inset-0） */
+.grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── 入场动画 ──────────────────────────────────────────────────
+ * 首屏元素轻微上浮淡入，营造"从容展开"的高级节奏 */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.rise-in {
+  animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── 滚动入场（配合 components/landing/reveal.tsx）───────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* 尊重"减少动效"无障碍偏好：
+ * 只关掉「自动、无限循环」的背景动效（极光漂移 / 入场动画），
+ * 保留「用户主动触发」的 hover 交互反馈——聚光、上浮、图标微动照常，
+ * 否则关了系统动画的用户会看到完全静止的页面（这正是之前的问题）。 */
+@media (prefers-reduced-motion: reduce) {
+  .aurora { animation: none; }
+  .rise-in { animation: none; opacity: 1; transform: none; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
