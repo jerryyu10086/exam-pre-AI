@@ -72,7 +72,7 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className="min-h-screen p-4 md:p-6">
       <div className="max-w-3xl mx-auto">
 
         {/* 顶部导航 */}
@@ -115,7 +115,7 @@ export default function UploadPage() {
               {uploadedFiles.map((file) => (
                 <div
                   key={file.name}
-                  className="flex items-center bg-card border border-white/5 rounded-lg p-4"
+                  className="flex items-center glass rounded-xl p-4"
                 >
                   {editMode && (
                     <input
@@ -170,7 +170,7 @@ export default function UploadPage() {
         {isDemo && (
           <div className="bg-accent/10 border border-accent/20 rounded-lg px-4 py-3 mb-6 flex items-center justify-between gap-3">
             <p className="text-accent text-sm">演示模式 · 注册后可上传、删除文件</p>
-            <Link href="/login" className="shrink-0 text-xs bg-accent hover:bg-accent-hover text-primary rounded-md px-3 py-1.5 transition-colors">立即注册</Link>
+            <Link href="/login" className="shrink-0 text-xs btn-glow text-primary rounded-md px-3 py-1.5 transition-colors">立即注册</Link>
           </div>
         )}
 
@@ -212,7 +212,7 @@ export default function UploadPage() {
                 {pendingFiles.map((pending, i) => (
                   <div
                     key={i}
-                    className="flex items-center bg-card border border-white/5 rounded-lg p-4"
+                    className="flex items-center glass rounded-xl p-4"
                   >
                     <span className="text-primary text-sm truncate flex-1">
                       {pending.file.name}
@@ -286,7 +286,7 @@ export default function UploadPage() {
               <button
                 onClick={saveToKnowledgeBase}
                 disabled={pendingFiles.length === 0 || status === "uploading"}
-                className="flex-1 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md py-2 text-sm font-medium transition-colors"
+                className="flex-1 btn-glow disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md py-2 text-sm font-medium transition-colors"
               >
                 {status === "uploading" ? "存入中..." : "存入知识库"}
               </button>
@@ -298,7 +298,7 @@ export default function UploadPage() {
       {/* 删除确认弹窗 */}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 max-w-sm w-full mx-4">
+          <div className="glass rounded-xl p-6 max-w-sm w-full mx-4">
             <p className="text-primary text-sm font-medium mb-2">确认删除？</p>
             <p className="text-muted text-xs mb-6">
               将删除 {confirmDelete.length} 个文件的全部知识库内容，此操作不可撤销。

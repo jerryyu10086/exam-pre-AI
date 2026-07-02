@@ -111,6 +111,16 @@ export default function ChapterPage() {
       .catch(() => setLoadError("加载失败，请刷新重试"));
   }, [params.id, chapterOrder]);
 
+  // 默认全部折叠：仅在章节首次加载时初始化一次（点开某条才渲染该条公式，
+  // 默认页面几乎不含 KaTeX DOM，彻底消除大 DOM 的布局/重绘卡顿）
+  const collapseInitRef = useRef(false);
+  useEffect(() => {
+    if (chapter && !collapseInitRef.current) {
+      collapseInitRef.current = true;
+      setCollapsedSet(new Set(chapter.knowledge_points.map((kp) => kp.id)));
+    }
+  }, [chapter]);
+
   // 1. 切换对话时 instant 跳底（有缓存立即生效）
   useEffect(() => {
     const el = messagesContainerRef.current;
@@ -233,7 +243,7 @@ export default function ChapterPage() {
 
   // ── render ────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className="min-h-screen p-4 md:p-6">
       <div className="max-w-3xl mx-auto">
 
         {/* 顶部导航 */}
@@ -265,7 +275,7 @@ export default function ChapterPage() {
 
         {/* 章节脉络摘要（REDUCE 生成，可选） */}
         {chapter?.chapter_summary && (
-          <div className="bg-card border border-accent/30 rounded-lg p-4 mb-5">
+          <div className="glass rounded-xl p-4 mb-5">
             <p className="text-muted text-sm leading-relaxed">{chapter.chapter_summary}</p>
           </div>
         )}
@@ -310,7 +320,9 @@ export default function ChapterPage() {
         {/* 错误提示 */}
         {loadError && <p className="text-tier-must text-sm mb-4">{loadError}</p>}
 
-        {/* ── 知识点列表 ── */}
+        {/* ── 知识点列表 ──
+            单视图条件渲染：一次只渲染当前视图。默认全部折叠 → 页面几乎不含公式 DOM，
+            切换「顺序/分层」只是重排标题行、点开某条才渲染该条公式，彻底消除卡顿。 */}
         {chapter && (
           <div className="flex flex-col gap-3 mb-8">
             {viewMode === "sequential" ? (
@@ -341,14 +353,12 @@ export default function ChapterPage() {
                 if (points.length === 0) return null;
                 return (
                   <div key={tier}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div
-                        className="w-1 h-4 rounded-full shrink-0"
-                        style={{ backgroundColor: colorVar }}
-                      />
-                      <span className="text-primary text-sm font-medium">{tier}</span>
+                    {/* 表头：彩色文字，不加色条；字号与顺序视图小标题一致（text-base）*/}
+                    <div className="mb-2">
+                      <span className="text-base font-medium" style={{ color: colorVar }}>{tier}</span>
                     </div>
-                    <div className="flex flex-col gap-3 pl-3">
+                    {/* 不缩进：知识点色条与顺序视图对齐，切换时不右移 */}
+                    <div className="flex flex-col gap-3">
                       {points.map((kp) => (
                         <TierContent
                           key={kp.id}
@@ -512,7 +522,7 @@ export default function ChapterPage() {
         {isDemo ? (
           <div className="border-t border-white/5 p-3 flex items-center justify-between gap-3">
             <p className="text-muted text-xs">演示模式 · 注册后解锁对话功能</p>
-            <a href="/login" className="shrink-0 text-xs bg-accent hover:bg-accent-hover text-primary rounded-md px-3 py-1.5 transition-colors">立即注册</a>
+            <a href="/login" className="shrink-0 text-xs btn-glow text-primary rounded-md px-3 py-1.5 transition-colors">立即注册</a>
           </div>
         ) : (
           <ChatInput ref={chatInputRef} onSend={sendMessage} onStop={stopSending} sending={sending} />
@@ -522,7 +532,7 @@ export default function ChapterPage() {
       {/* 删除确认弹窗 */}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 max-w-sm w-full mx-4">
+          <div className="glass rounded-xl p-6 max-w-sm w-full mx-4">
             <p className="text-primary text-sm font-medium mb-2">确认删除对话？</p>
             <p className="text-muted text-xs mb-6">此操作不可撤销。</p>
             <div className="flex gap-3">

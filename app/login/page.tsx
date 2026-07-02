@@ -51,13 +51,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
-      <div className="mb-8 text-center">
-        <div className="text-accent font-bold text-2xl tracking-tight mb-1">度月如日</div>
+    <div className="isolate relative min-h-screen flex flex-col items-center justify-center px-4 pb-32 overflow-hidden">
+      {/* 宇宙图背景，与首页统一（垫在最底层） */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="cosmos-photo" />
+        <div className="cosmos-vignette" />
+        <div className="cosmos-grade" />
+        <div className="grain" />
+      </div>
+
+      <div className="relative mb-8 text-center rise-in">
+        <div className="text-gradient font-bold text-3xl tracking-tight mb-1">度月如日</div>
         <p className="text-muted text-sm">备考AI · 登录 / 注册</p>
       </div>
 
-      <div className="bg-card border border-white/5 rounded-lg p-6 w-full max-w-sm">
+      <div className="glass rounded-2xl p-6 w-full max-w-sm relative rise-in" style={{ animationDelay: "0.08s" }}>
         {step === "email" ? (
           <>
             <p className="text-primary text-sm font-medium mb-4">输入邮箱，获取验证码</p>
@@ -74,7 +82,7 @@ export default function LoginPage() {
             <button
               onClick={sendOtp}
               disabled={loading || !email.trim()}
-              className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-primary rounded-md py-2 text-sm font-medium transition-colors"
+              className="btn-glow w-full disabled:opacity-50 disabled:pointer-events-none text-white rounded-lg py-2.5 text-sm font-semibold"
             >
               {loading ? "发送中..." : "发送验证码"}
             </button>
@@ -96,7 +104,7 @@ export default function LoginPage() {
             <button
               onClick={verifyCode}
               disabled={loading || code.trim().length < 1}
-              className="w-full bg-accent hover:bg-accent-hover disabled:opacity-50 text-primary rounded-md py-2 text-sm font-medium transition-colors mb-2"
+              className="btn-glow w-full disabled:opacity-50 disabled:pointer-events-none text-white rounded-lg py-2.5 text-sm font-semibold mb-2"
             >
               {loading ? "验证中..." : "登录"}
             </button>
@@ -112,12 +120,16 @@ export default function LoginPage() {
 
       <button
         onClick={enterDemo}
-        className="mt-4 text-muted text-xs hover:text-primary transition-colors underline underline-offset-2"
+        className="relative mt-4 text-white/70 text-xs hover:text-white transition-colors underline underline-offset-2"
+        style={{ textShadow: "0 2px 12px rgba(0,0,0,0.6)" }}
       >
         无需注册，直接体验演示
       </button>
 
-      <p className="mt-4 text-muted text-xs opacity-50">
+      <p
+        className="relative mt-4 text-white/70 text-xs"
+        style={{ textShadow: "0 2px 12px rgba(0,0,0,0.6)" }}
+      >
         输入邮箱即视为同意服务条款 · 首次登录自动注册
       </p>
     </div>

@@ -98,7 +98,7 @@ export default function ReviewPage() {
   const totalCount = files ? files.length : null;
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className="min-h-screen p-4 md:p-6">
       <div className="max-w-3xl mx-auto">
 
         {/* 顶部导航 */}
@@ -126,7 +126,7 @@ export default function ReviewPage() {
 
         {/* 学科总览（V1 新增）— accent 边框突出 */}
         {framework && (framework.subject_thread || framework.chapter_relations) && (
-          <div className="bg-card border border-accent/30 rounded-lg p-4 mb-5">
+          <div className="glass rounded-xl p-4 mb-5">
             <p className="text-primary text-sm font-medium mb-2">📚 学科总览</p>
             {framework.subject_thread && (
               <p className="text-muted text-sm leading-relaxed mb-1.5">
@@ -162,7 +162,7 @@ export default function ReviewPage() {
         {!files && !error && (
           <div className="flex flex-col gap-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-card border border-white/5 rounded-lg p-4 h-28 animate-pulse" />
+              <div key={i} className="glass rounded-xl p-4 h-28 animate-pulse" />
             ))}
           </div>
         )}

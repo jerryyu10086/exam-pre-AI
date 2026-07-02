@@ -87,7 +87,7 @@ export default function ExamDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className="min-h-screen p-4 md:p-6">
       <div className="max-w-3xl mx-auto">
 
         <div className="flex items-center gap-2 mb-6">
@@ -107,7 +107,7 @@ export default function ExamDetailPage() {
             <button
               key={type}
               onClick={() => handleMaterialClick(type)}
-              className="bg-card border border-white/5 rounded-lg p-4 text-left hover:bg-card-hover transition-colors"
+              className="glass rounded-xl p-4 text-left hover:bg-card-hover transition-colors"
             >
               <div className="flex items-center justify-between">
                 <p className="text-primary font-medium text-sm">{label}</p>
@@ -126,7 +126,7 @@ export default function ExamDetailPage() {
             onClick={(e) => { if (!canAnalyze || isDemo) e.preventDefault(); }}
             className={`block w-full text-center rounded-md py-2 text-sm font-medium transition-colors ${
               canAnalyze && !isDemo
-                ? "bg-accent hover:bg-accent-hover text-primary"
+                ? "btn-glow text-primary"
                 : "bg-card border border-white/5 text-muted opacity-50 cursor-not-allowed"
             }`}
           >

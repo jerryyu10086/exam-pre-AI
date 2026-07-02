@@ -39,7 +39,7 @@ export default function ChapterCard({
   }
 
   return (
-    <div className="bg-card border border-white/5 rounded-lg p-4">
+    <div className="glass rounded-xl p-4">
       <div className="flex items-start justify-between gap-2 mb-3">
         <h2 className="text-base font-medium text-primary">{displayName}</h2>
       </div>

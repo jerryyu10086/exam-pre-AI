@@ -302,47 +302,69 @@ input:-webkit-autofill:active {
 }
 .btn-glow:active { transform: translateY(0); }
 
-/* ── 极光光斑（Hero 背景动效）─────────────────────────────────
- * 大尺寸高斯模糊圆斑，缓慢漂移，营造流动的高级氛围。
- * 用法：<div class="aurora aurora-1" /> 放在相对定位容器内 */
-.aurora {
-  position: absolute;
+/* ══════════════════════════════════════════════════════════════
+ * 宇宙感落地背景（落地页 Hero + 登录页共用）—— 真实照片方案
+ * 呼应产品名「度月如日」：一张电影感星球/平原图打底，叠加品牌紫调 +
+ * 暗角 + 底部渐入页面 bg + 文字可读性 scrim。
+ * 换图零改代码：把新图覆盖到 public/hero-cosmos.jpg 即可（建议 ≥2400px 宽、
+ * 主体偏两侧或地平线、中央留暗以便压标题）。
+ * 分层(back→front)：photo → grade → vignette → grain
+ * ══════════════════════════════════════════════════════════════ */
+
+/* 跟随文字的极淡柔光：附在每个能力块「0X 序号/紫色标签」处，统一而非随机点缀。
+ * 关键：filter blur 把渐变边缘彻底糊掉 → 无可辨认边界，只作从序号透出的氛围辉光，
+ * 与深色背景自然衔接、不再是"悬浮的斑"。锚点对齐序号，reverse 块观感一致。 */
+.cosmos-text-glow {
+  top: -8rem;
+  left: -10rem;
+  width: 34rem;
+  height: 30rem;
   border-radius: 9999px;
-  filter: blur(80px);
-  opacity: 0.55;
-  pointer-events: none;
-  will-change: transform;
-}
-.aurora-1 {
-  width: 32rem;
-  height: 32rem;
-  background: radial-gradient(circle, var(--color-accent), transparent 70%);
-  animation: aurora-drift-1 18s ease-in-out infinite alternate;
-}
-.aurora-2 {
-  width: 26rem;
-  height: 26rem;
-  background: radial-gradient(circle, #6366f1, transparent 70%);
-  animation: aurora-drift-2 22s ease-in-out infinite alternate;
-}
-.aurora-3 {
-  width: 22rem;
-  height: 22rem;
-  background: radial-gradient(circle, #d946ef, transparent 70%);
-  animation: aurora-drift-3 26s ease-in-out infinite alternate;
+  background: radial-gradient(circle at 42% 44%,
+    color-mix(in srgb, var(--color-accent) 9%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent) 3%, transparent) 34%,
+    transparent 64%);
+  filter: blur(42px);
 }
 
-@keyframes aurora-drift-1 {
-  from { transform: translate(-8%, -6%) scale(1); }
-  to   { transform: translate(10%, 8%) scale(1.15); }
+/* 全屏背景照片；无图时回退到近黑，不会出现裂图 */
+.cosmos-photo {
+  position: absolute;
+  inset: 0;
+  background-color: #0a0a12;
+  background-image: url("/hero-cosmos.jpg");
+  background-size: cover;
+  background-position: center 32%;
+  background-repeat: no-repeat;
 }
-@keyframes aurora-drift-2 {
-  from { transform: translate(6%, -10%) scale(1.1); }
-  to   { transform: translate(-10%, 6%) scale(0.95); }
+
+/* 融合层：中央 scrim 抬标题可读性 + 顶部微紫品牌调 + 底部实心渐隐到页面底色
+ * Hero 作为独立区块，底部收尾成纯 --color-background，与下方星空区在底色处对齐相接 */
+.cosmos-grade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(58% 48% at 50% 42%,
+      color-mix(in srgb, #000 30%, transparent) 0%,
+      transparent 70%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--color-accent) 10%, transparent) 0%,
+      transparent 32%),
+    linear-gradient(180deg,
+      transparent 60%,
+      color-mix(in srgb, var(--color-background) 24%, transparent) 74%,
+      color-mix(in srgb, var(--color-background) 60%, transparent) 84%,
+      color-mix(in srgb, var(--color-background) 88%, transparent) 91%,
+      var(--color-background) 96%);
 }
-@keyframes aurora-drift-3 {
-  from { transform: translate(-6%, 10%) scale(0.9); }
-  to   { transform: translate(8%, -8%) scale(1.1); }
+
+/* 暗角 vignette：四周压暗，电影画幅框感 */
+.cosmos-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(128% 118% at 50% 40%,
+    transparent 42%,
+    color-mix(in srgb, #000 45%, transparent) 100%);
 }
 
 /* ── 细颗粒噪点叠层 ────────────────────────────────────────────
@@ -381,11 +403,10 @@ input:-webkit-autofill:active {
 }
 
 /* 尊重"减少动效"无障碍偏好：
- * 只关掉「自动、无限循环」的背景动效（极光漂移 / 入场动画），
+ * 只关掉「自动、无限循环」的入场动画，
  * 保留「用户主动触发」的 hover 交互反馈——聚光、上浮、图标微动照常，
  * 否则关了系统动画的用户会看到完全静止的页面（这正是之前的问题）。 */
 @media (prefers-reduced-motion: reduce) {
-  .aurora { animation: none; }
   .rise-in { animation: none; opacity: 1; transform: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
 }

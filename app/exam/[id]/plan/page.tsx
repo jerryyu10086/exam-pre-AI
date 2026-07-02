@@ -229,11 +229,11 @@ export default function PlanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-start justify-center pt-40 p-6">
+    <div className="min-h-screen flex items-start justify-center pt-40 p-6">
       <div className="w-full max-w-sm">
         <h1 className="text-lg font-semibold text-primary mb-6">准备分析</h1>
 
-        <div className="bg-card border border-white/5 rounded-lg p-4 mb-6">
+        <div className="glass rounded-xl p-4 mb-6">
           {summary === null ? (
             <p className="text-muted text-sm">加载中...</p>
           ) : (
@@ -296,7 +296,7 @@ export default function PlanPage() {
           <button
             onClick={() => setShowModal(true)}
             disabled={!canStart || status === "loading"}
-            className="flex-1 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md py-2 text-sm font-medium transition-colors"
+            className="flex-1 btn-glow disabled:opacity-50 disabled:cursor-not-allowed text-primary rounded-md py-2 text-sm font-medium transition-colors"
           >
             {status === "loading" ? "分析中..." : isReanalysis ? "重新解析" : "开始解析"}
           </button>
@@ -306,7 +306,7 @@ export default function PlanPage() {
       {/* 解析前问询弹窗 */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 w-full max-w-sm mx-4">
+          <div className="glass rounded-xl p-6 w-full max-w-sm mx-4">
             <p className="text-primary font-semibold text-base mb-1">补充信息</p>
             <p className="text-muted text-xs mb-5">选填，AI 会据此调整知识点优先级；不确定可以不写</p>
 
@@ -334,7 +334,7 @@ export default function PlanPage() {
               </button>
               <button
                 onClick={handleConfirmAndStart}
-                className="flex-1 bg-accent hover:bg-accent-hover text-primary rounded-md py-2 text-sm font-medium transition-colors"
+                className="flex-1 btn-glow text-primary rounded-md py-2 text-sm font-medium transition-colors"
               >
                 确认
               </button>

@@ -247,7 +247,7 @@ export default function GlobalQAPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className="min-h-screen p-4 md:p-6">
       <div className="max-w-3xl mx-auto">
 
         {/* 顶部 */}
@@ -324,7 +324,7 @@ export default function GlobalQAPage() {
         )}
 
         {/* 消息区 + 输入框 */}
-        <div className="bg-card border border-white/5 rounded-lg flex flex-col">
+        <div className="glass rounded-xl flex flex-col">
           <div ref={messagesContainerRef} className="chat-scrollbar flex-1 p-4 space-y-3 max-h-96 overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
             {loadingMessages ? (
               <div className="flex items-center justify-center py-16">
@@ -388,7 +388,7 @@ export default function GlobalQAPage() {
           {isDemo ? (
             <div className="border-t border-white/5 p-3 flex items-center justify-between gap-3">
               <p className="text-muted text-xs">演示模式 · 注册后解锁对话功能</p>
-              <a href="/login" className="shrink-0 text-xs bg-accent hover:bg-accent-hover text-primary rounded-md px-3 py-1.5 transition-colors">立即注册</a>
+              <a href="/login" className="shrink-0 text-xs btn-glow text-primary rounded-md px-3 py-1.5 transition-colors">立即注册</a>
             </div>
           ) : (
             <ChatInput
@@ -404,7 +404,7 @@ export default function GlobalQAPage() {
       {/* 删除确认弹窗 */}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card border border-white/5 rounded-lg p-6 max-w-sm w-full mx-4">
+          <div className="glass rounded-xl p-6 max-w-sm w-full mx-4">
             <p className="text-primary text-sm font-medium mb-2">确认删除对话？</p>
             <p className="text-muted text-xs mb-6">此操作不可撤销。</p>
             <div className="flex gap-3">

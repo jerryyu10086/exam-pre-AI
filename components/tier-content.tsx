@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -36,6 +36,22 @@ type TierContentProps = {
 const TierContent = memo(function TierContent({ point, index, collapsed, onToggle, onAsk, isKeyFocus }: TierContentProps) {
   const color = TIER_COLOR[point.tier] ?? TIER_COLOR["必学"];
 
+  // 缓存渲染好的 Markdown 元素：内容不变则复用同一元素引用，
+  // 重渲染（折叠/视图切换/prop 变化）时 React 直接 bail-out，不再重新解析 KaTeX。
+  const knowledgeNode = useMemo(() => (
+    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+      {preprocessMath(point.knowledge)}
+    </ReactMarkdown>
+  ), [point.knowledge]);
+
+  const explanationNode = useMemo(() => (
+    point.explanation ? (
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+        {preprocessMath(point.explanation)}
+      </ReactMarkdown>
+    ) : null
+  ), [point.explanation]);
+
   return (
     <div className="flex gap-3">
       {/* 左侧色条 */}
@@ -62,20 +78,18 @@ const TierContent = memo(function TierContent({ point, index, collapsed, onToggl
           </button>
         </div>
 
-        {/* 展开内容 */}
+        {/* 展开内容：常驻挂载，折叠时仅用 hidden 隐藏 → 折叠/展开为纯 CSS 开关，
+            不卸载重挂、不重解析公式 */}
+        {/* 折叠时不渲染展开内容（含公式）→ 默认折叠时页面几乎不含 KaTeX DOM，快 */}
         {!collapsed && (
           <div className="mt-2 space-y-2">
             <div className="text-muted text-sm leading-relaxed prose prose-invert prose-sm max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                {preprocessMath(point.knowledge)}
-              </ReactMarkdown>
+              {knowledgeNode}
             </div>
 
-            {point.explanation && (
+            {explanationNode && (
               <div className="text-muted text-sm leading-relaxed border-l-2 border-white/10 pl-3 prose prose-invert prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                  {preprocessMath(point.explanation)}
-                </ReactMarkdown>
+                {explanationNode}
               </div>
             )}
 

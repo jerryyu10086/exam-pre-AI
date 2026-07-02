@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 // 不需要登录就能访问的路径
 const PUBLIC_PATHS = ["/", "/landing", "/login", "/auth"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
