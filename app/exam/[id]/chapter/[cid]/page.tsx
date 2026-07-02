@@ -1,18 +1,13 @@
 "use client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect, useRef, useCallback, useMemo, Children } from "react";
-import type { ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, startTransition } from "react";
 import TierContent, { type KnowledgePoint } from "@/components/tier-content";
 import ChatInput, { type ChatInputHandle } from "@/components/chat-input";
 import ChatThinking from "@/components/chat-thinking";
+import ChatMarkdown from "@/components/chat-markdown";
 import { useChat } from "@/hooks/useChat";
 import { isDemoModeBrowser } from "@/lib/demo";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import { preprocessMath } from "@/lib/math";
 
 type FileEntry = {
   file_name: string;
@@ -30,33 +25,6 @@ const TIER_LEGEND = [
 ] as const;
 
 type ViewMode = "sequential" | "tiered";
-
-// 检测 AI 引用格式「（N. 概念名）」，渲染为 chip
-// 整数序号 + 概念名（概念名首字符不能是数字，防止误匹配章节号如 1.3）
-const KP_REF_RE = /[（(](\d+)[.．]\s*([^\d）)\s][^）)]{0,39})[）)]/g;
-function processKpRefs(node: ReactNode, idx: number): ReactNode {
-  if (typeof node !== "string") return node;
-  KP_REF_RE.lastIndex = 0;
-  if (!KP_REF_RE.test(node)) return node;
-  KP_REF_RE.lastIndex = 0;
-  const parts: ReactNode[] = [];
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = KP_REF_RE.exec(node)) !== null) {
-    if (m.index > last) parts.push(node.slice(last, m.index));
-    parts.push(
-      <span
-        key={`kp-${idx}-${m.index}`}
-        className="inline-flex items-center bg-background border border-accent/40 text-accent text-xs px-2 py-0.5 rounded-md mx-0.5 whitespace-nowrap align-middle"
-      >
-        {m[1]}. {m[2]}
-      </span>
-    );
-    last = m.index + m[0].length;
-  }
-  if (last < node.length) parts.push(node.slice(last));
-  return parts;
-}
 
 export default function ChapterPage() {
   const params = useParams<{ id: string; cid: string }>();
@@ -164,13 +132,16 @@ export default function ChapterPage() {
     });
   }, []);
 
+  // 全部展开/折叠会一次性挂载/卸载所有公式 DOM，属重活。
+  // 用 startTransition 标记为非紧急更新：按钮点击立即响应，重渲染在后台进行，不阻塞主线程。
   function collapseAll() {
     if (!chapter) return;
-    setCollapsedSet(new Set(chapter.knowledge_points.map((kp) => kp.id)));
+    const ids = chapter.knowledge_points.map((kp) => kp.id);
+    startTransition(() => setCollapsedSet(new Set(ids)));
   }
 
   function expandAll() {
-    setCollapsedSet(new Set());
+    startTransition(() => setCollapsedSet(new Set()));
   }
 
   // 按 id 升序后按 section_number 全局合并分组（用 Map 避免非连续同名 section 产生重复 key）
@@ -208,6 +179,41 @@ export default function ChapterPage() {
     })),
     [chapter?.knowledge_points]
   );
+
+  // 两种视图拍平成单层列表：小节/档位标题与知识点作为同级兄弟节点渲染。
+  // 关键——知识点用 kp.id 作 key 且始终处于同一层级，切换视图时两种排布共享相同的
+  // key 集合，React 直接「移动」已有 TierContent 实例而非卸载重建，
+  // useMemo 缓存的 KaTeX 元素得以保留（已展开的知识点切换视图不再重新解析公式）。
+  type FlatItem =
+    | { kind: "header"; key: string; label: string; colorVar?: string }
+    | { kind: "point"; kp: KnowledgePoint; index: number };
+  const flatItems = useMemo<FlatItem[]>(() => {
+    if (!chapter) return [];
+    const items: FlatItem[] = [];
+    if (viewMode === "sequential") {
+      for (const g of sequentialGroups.groups) {
+        if (g.section_number) {
+          items.push({
+            kind: "header",
+            key: `sec-${g.key}`,
+            label: `${g.section_number}${g.section_name ? `、${g.section_name}` : ""}`,
+          });
+        }
+        for (const kp of g.points) {
+          items.push({ kind: "point", kp, index: sequentialGroups.indexMap.get(kp.id) ?? 0 });
+        }
+      }
+    } else {
+      for (const { tier, points, colorVar } of tieredGroups) {
+        if (points.length === 0) continue;
+        items.push({ kind: "header", key: `tier-${tier}`, label: tier, colorVar });
+        for (const kp of points) {
+          items.push({ kind: "point", kp, index: parseInt(kp.id.replace("kp_", ""), 10) + 1 });
+        }
+      }
+    }
+    return items;
+  }, [chapter, viewMode, sequentialGroups, tieredGroups]);
 
   // ── 对话改名 ─────────────────────────────────────────────
   function startRename(conv: { id: string; title: string }) {
@@ -325,55 +331,29 @@ export default function ChapterPage() {
             切换「顺序/分层」只是重排标题行、点开某条才渲染该条公式，彻底消除卡顿。 */}
         {chapter && (
           <div className="flex flex-col gap-3 mb-8">
-            {viewMode === "sequential" ? (
-              sequentialGroups.groups.map((g) => (
-                <div key={g.key}>
-                  {g.section_number && (
-                    <div className="text-muted text-base font-medium mb-2">
-                      {g.section_number}{g.section_name ? `、${g.section_name}` : ""}
-                    </div>
-                  )}
-                  <div className="flex flex-col gap-3">
-                    {g.points.map((kp) => (
-                      <TierContent
-                        key={kp.id}
-                        point={kp}
-                        index={sequentialGroups.indexMap.get(kp.id) ?? 0}
-                        collapsed={collapsedSet.has(kp.id)}
-                        onToggle={toggleCollapse}
-                        onAsk={handleAsk}
-                        isKeyFocus={chapter.key_focus?.includes(kp.id)}
-                      />
-                    ))}
-                  </div>
+            {flatItems.map((item, i) =>
+              item.kind === "header" ? (
+                // 小节标题（顺序视图）/ 档位标题（分层视图）——档位用彩色文字，无色条，
+                // 与顺序视图小标题字号一致（text-base）；非首行加 mt-2 分隔上一组
+                <div key={item.key} className={i === 0 ? "" : "mt-2"}>
+                  <span
+                    className={`text-base font-medium ${item.colorVar ? "" : "text-muted"}`}
+                    style={item.colorVar ? { color: item.colorVar } : undefined}
+                  >
+                    {item.label}
+                  </span>
                 </div>
-              ))
-            ) : (
-              tieredGroups.map(({ tier, points, colorVar }) => {
-                if (points.length === 0) return null;
-                return (
-                  <div key={tier}>
-                    {/* 表头：彩色文字，不加色条；字号与顺序视图小标题一致（text-base）*/}
-                    <div className="mb-2">
-                      <span className="text-base font-medium" style={{ color: colorVar }}>{tier}</span>
-                    </div>
-                    {/* 不缩进：知识点色条与顺序视图对齐，切换时不右移 */}
-                    <div className="flex flex-col gap-3">
-                      {points.map((kp) => (
-                        <TierContent
-                          key={kp.id}
-                          point={kp}
-                          index={parseInt(kp.id.replace("kp_", ""), 10) + 1}
-                          collapsed={collapsedSet.has(kp.id)}
-                          onToggle={toggleCollapse}
-                          onAsk={handleAsk}
-                          isKeyFocus={chapter.key_focus?.includes(kp.id)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })
+              ) : (
+                <TierContent
+                  key={item.kp.id}
+                  point={item.kp}
+                  index={item.index}
+                  collapsed={collapsedSet.has(item.kp.id)}
+                  onToggle={toggleCollapse}
+                  onAsk={handleAsk}
+                  isKeyFocus={chapter.key_focus?.includes(item.kp.id)}
+                />
+              )
             )}
           </div>
         )}
@@ -383,11 +363,11 @@ export default function ChapterPage() {
       <button
         onClick={() => setDrawerOpen((v) => !v)}
         style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
-        className={`fixed top-1/2 right-0 bg-accent hover:bg-accent-hover text-primary text-xs font-medium px-2 py-4 rounded-l-lg z-40 shadow-lg transition-transform duration-300 ${
+        className={`fixed top-1/2 right-0 bg-accent hover:bg-accent-hover text-primary text-xs font-medium px-3 py-3 rounded-l-lg z-40 shadow-lg transition-transform duration-300 ${
           drawerOpen ? "md:-translate-x-[560px] -translate-y-1/2 max-md:opacity-0 max-md:pointer-events-none" : "-translate-y-1/2"
         }`}
       >
-        {drawerOpen ? "收起" : "💬 对话"}
+        {drawerOpen ? "收起" : "对话"}
       </button>
 
       {/* ── 右侧对话抽屉（手机端全屏次级页面 + 桌面端右侧抽屉） ── */}
@@ -487,27 +467,7 @@ export default function ChapterPage() {
                 {msg.role === "user" ? (
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 ) : (
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm, remarkMath]}
-                    rehypePlugins={[rehypeKatex]}
-                    components={{
-                      p: ({ children }) => (
-                        <p className="mb-2 last:mb-0 leading-relaxed">
-                          {Children.map(children, (child, i) => processKpRefs(child, i))}
-                        </p>
-                      ),
-                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                      em: ({ children }) => <em className="italic">{children}</em>,
-                      ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
-                      ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-0.5">{children}</ol>,
-                      li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-                      code: ({ children }) => <code className="bg-white/10 rounded px-1 text-xs font-mono">{children}</code>,
-                      pre: ({ children }) => <pre className="bg-white/10 rounded p-2 text-xs font-mono mb-2 overflow-x-auto whitespace-pre">{children}</pre>,
-                      h3: ({ children }) => <h3 className="font-semibold mb-1 mt-2">{children}</h3>,
-                    }}
-                  >
-                    {preprocessMath(msg.content)}
-                  </ReactMarkdown>
+                  <ChatMarkdown content={msg.content} />
                 )}
               </div>
             </div>
